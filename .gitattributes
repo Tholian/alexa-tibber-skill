@@ -1,0 +1,87 @@
+# =============================================================
+# alexa-tibber-skill – .gitattributes
+#
+# Sorgt für konsistente Zeilenenden (LF) auf allen Plattformen
+# und verbessert Git-Diffs für bekannte Dateitypen.
+# =============================================================
+
+# Standardverhalten: Git entscheidet automatisch
+* text=auto
+
+# -------------------------------------------------------------
+# Quellcode – immer LF (auch auf Windows)
+# -------------------------------------------------------------
+*.java          text eol=lf
+*.kt            text eol=lf
+*.kts           text eol=lf
+*.groovy        text eol=lf
+*.scala         text eol=lf
+*.xml           text eol=lf
+*.json          text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.properties    text eol=lf
+*.toml          text eol=lf
+
+# -------------------------------------------------------------
+# Web / Skripte
+# -------------------------------------------------------------
+*.html          text eol=lf
+*.css           text eol=lf
+*.js            text eol=lf
+*.ts            text eol=lf
+*.sh            text eol=lf
+*.bash          text eol=lf
+
+# Windows-Skripte behalten CRLF
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# -------------------------------------------------------------
+# Dokumentation
+# -------------------------------------------------------------
+*.md            text eol=lf
+*.txt           text eol=lf
+*.adoc          text eol=lf
+*.rst           text eol=lf
+LICENSE         text eol=lf
+CONTRIBUTING.md text eol=lf
+README.md       text eol=lf
+
+# -------------------------------------------------------------
+# Build-Dateien
+# -------------------------------------------------------------
+Dockerfile      text eol=lf
+Makefile        text eol=lf
+*.gradle        text eol=lf
+gradlew         text eol=lf
+gradlew.bat     text eol=crlf
+
+# -------------------------------------------------------------
+# Binärdateien – niemals als Text behandeln
+# -------------------------------------------------------------
+*.jar           binary
+*.war           binary
+*.ear           binary
+*.class         binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.zip           binary
+*.gz            binary
+*.tar           binary
+*.p12           binary
+*.jks           binary
+*.keystore      binary
+
+# -------------------------------------------------------------
+# Git diff – bessere Diff-Ausgabe für bekannte Formate
+# -------------------------------------------------------------
+*.java          diff=java
+*.kt            diff=kotlin
+*.md            diff=markdown
+*.json          diff=json

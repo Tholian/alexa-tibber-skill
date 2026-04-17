@@ -1,0 +1,5 @@
+server:
+  port: 8080
+
+tibber:
+  api-url: https://api.tibber.com/v1-beta/gql

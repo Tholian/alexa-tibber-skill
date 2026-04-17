@@ -1,0 +1,84 @@
+{
+    "interactionModel": {
+        "languageModel": {
+            "invocationName": "tibber strompreis",
+            "intents": [
+                {
+                    "name": "AMAZON.CancelIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.HelpIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.StopIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.FallbackIntent",
+                    "samples": []
+                },
+                {
+                    "name": "GetCurrentPriceIntent",
+                    "slots": [],
+                    "samples": [
+                        "was kostet Strom gerade",
+                        "wie ist der aktuelle Strompreis",
+                        "was kostet eine Kilowattstunde",
+                        "wie teuer ist Strom jetzt",
+                        "aktueller Strompreis",
+                        "was ist der Preis gerade",
+                        "wie viel kostet Strom",
+                        "was kostet der Strom"
+                    ]
+                },
+                {
+                    "name": "GetCurrentConsumptionIntent",
+                    "slots": [],
+                    "samples": [
+                        "wie viel Strom verbrauche ich gerade",
+                        "was ist mein aktueller Verbrauch",
+                        "wie hoch ist mein Stromverbrauch",
+                        "was habe ich gerade verbraucht",
+                        "mein aktueller Verbrauch",
+                        "wie viel Strom habe ich verbraucht",
+                        "aktueller Stromverbrauch"
+                    ]
+                },
+                {
+                    "name": "GetLowestPriceIntent",
+                    "slots": [],
+                    "samples": [
+                        "wann ist Strom am günstigsten",
+                        "wann ist der Tiefstpreis",
+                        "wann ist Strom billig",
+                        "wann ist der günstigste Preis",
+                        "wann ist Strom am billigsten",
+                        "wann kostet Strom am wenigsten",
+                        "nächster Tiefstpreis",
+                        "günstigste Stunde"
+                    ]
+                },
+                {
+                    "name": "GetHighestPriceIntent",
+                    "slots": [],
+                    "samples": [
+                        "wann ist Strom am teuersten",
+                        "wann ist der Höchstpreis",
+                        "wann ist Strom teuer",
+                        "wann ist der teuerste Preis",
+                        "wann kostet Strom am meisten",
+                        "nächster Höchstpreis",
+                        "teuerste Stunde"
+                    ]
+                }
+            ],
+            "types": []
+        }
+    }
+}

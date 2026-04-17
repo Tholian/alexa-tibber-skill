@@ -1,0 +1,70 @@
+package org.tholian.alexa.tibber.handler;
+
+import java.util.Locale;
+import java.util.Optional;
+
+import com.amazon.ask.dispatcher.request.handler.HandlerInput;
+import com.amazon.ask.dispatcher.request.handler.RequestHandler;
+import com.amazon.ask.model.Response;
+import com.amazon.ask.request.Predicates;
+
+import org.springframework.stereotype.Component;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.tholian.alexa.tibber.model.ConsumptionNode;
+import org.tholian.alexa.tibber.service.TibberService;
+
+@Component
+public class CurrentConsumptionIntentHandler implements RequestHandler {
+
+	private static final Logger log = LoggerFactory.getLogger( CurrentConsumptionIntentHandler.class );
+
+	private final TibberService tibberService;
+
+	public CurrentConsumptionIntentHandler( TibberService tibberService ) {
+		this.tibberService = tibberService;
+	}
+
+	@Override
+	public boolean canHandle( HandlerInput input ) {
+		return input.matches( Predicates.intentName( "GetCurrentConsumptionIntent" ) );
+	}
+
+	@Override
+	public Optional<Response> handle( HandlerInput input ) {
+		String token = input.getRequestEnvelope( ).getContext( ).getSystem( ).getUser( ).getAccessToken( );
+		if ( token == null ) {
+			return input.getResponseBuilder( )
+					.withSpeech( "Bitte verknüpfe zunächst deinen Tibber Account in der Alexa App." )
+					.withLinkAccountCard( )
+					.build( );
+		}
+		try {
+			Optional<ConsumptionNode> node = tibberService.getCurrentConsumption( token );
+			if ( node.isEmpty( ) ) {
+				return input.getResponseBuilder( )
+						.withSpeech( "Es sind noch keine Verbrauchsdaten verfügbar." )
+						.build( );
+			}
+			ConsumptionNode consumption = node.get( );
+			String from = tibberService.formatTime( consumption.from( ) );
+			String speech;
+			if ( consumption.consumption( ) != null && consumption.cost( ) != null ) {
+				speech = String.format( Locale.GERMAN,
+						"In der Stunde ab %s hast du %.2f Kilowattstunden verbraucht und dafür %.2f Euro bezahlt.",
+						from, consumption.consumption( ), consumption.cost( ) );
+			} else {
+				speech = "In der Stunde ab " + from + " sind noch keine vollständigen Verbrauchsdaten verfügbar.";
+			}
+			return input.getResponseBuilder( )
+					.withSpeech( speech )
+					.build( );
+		} catch ( Exception e ) {
+			log.error( "Fehler beim Abrufen des Verbrauchs", e );
+			return input.getResponseBuilder( )
+					.withSpeech( "Es gibt gerade ein Problem beim Abrufen der Verbrauchsdaten. Bitte versuche es später noch einmal." )
+					.build( );
+		}
+	}
+}
