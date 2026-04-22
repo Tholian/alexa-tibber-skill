@@ -1,3 +1,4 @@
+
 package org.tholian.alexa.tibber.config;
 
 import com.amazon.ask.CustomSkill;
@@ -16,7 +17,9 @@ import org.tholian.alexa.tibber.handler.FallbackIntentHandler;
 import org.tholian.alexa.tibber.handler.HelpIntentHandler;
 import org.tholian.alexa.tibber.handler.HighestPriceIntentHandler;
 import org.tholian.alexa.tibber.handler.LaunchRequestHandler;
+import org.tholian.alexa.tibber.handler.LoggingInterceptor;
 import org.tholian.alexa.tibber.handler.LowestPriceIntentHandler;
+import org.tholian.alexa.tibber.handler.MDCCleanupInterceptor;
 import org.tholian.alexa.tibber.handler.SessionEndedRequestHandler;
 
 @Configuration
@@ -32,7 +35,10 @@ public class SkillConfig {
 			HelpIntentHandler helpIntentHandler,
 			FallbackIntentHandler fallbackIntentHandler,
 			CancelAndStopIntentHandler cancelAndStopIntentHandler,
-			SessionEndedRequestHandler sessionEndedRequestHandler
+			SessionEndedRequestHandler sessionEndedRequestHandler,
+			// KI-generiert: Interceptors für MDC-Logging
+			LoggingInterceptor loggingInterceptor,
+			MDCCleanupInterceptor mdcCleanupInterceptor
 	) {
 		return Skills.custom( )
 				.addRequestHandlers(
@@ -46,6 +52,8 @@ public class SkillConfig {
 						cancelAndStopIntentHandler,
 						sessionEndedRequestHandler
 				)
+				.addRequestInterceptors( loggingInterceptor )
+				.addResponseInterceptors( mdcCleanupInterceptor )
 				.build( );
 	}
 

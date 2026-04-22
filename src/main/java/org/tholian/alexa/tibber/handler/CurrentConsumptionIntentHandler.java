@@ -1,3 +1,5 @@
+
+
 package org.tholian.alexa.tibber.handler;
 
 import java.util.Locale;
@@ -7,24 +9,19 @@ import com.amazon.ask.dispatcher.request.handler.HandlerInput;
 import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.amazon.ask.model.Response;
 import com.amazon.ask.request.Predicates;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.tholian.alexa.tibber.model.ConsumptionNode;
 import org.tholian.alexa.tibber.service.TibberService;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class CurrentConsumptionIntentHandler implements RequestHandler {
 
-	private static final Logger log = LoggerFactory.getLogger( CurrentConsumptionIntentHandler.class );
-
 	private final TibberService tibberService;
-
-	public CurrentConsumptionIntentHandler( TibberService tibberService ) {
-		this.tibberService = tibberService;
-	}
 
 	@Override
 	public boolean canHandle( HandlerInput input ) {

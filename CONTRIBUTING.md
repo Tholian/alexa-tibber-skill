@@ -55,9 +55,9 @@ Für größere Änderungen bitte vorher ein Issue öffnen, um die Umsetzung abzu
 
 ### Voraussetzungen
 
-- **Java 21** (z. B. via [SDKMAN](https://sdkman.io/): `sdk install java 21-tem`)
+- **Java 25** (z. B. via [SDKMAN](https://sdkman.io/): `sdk install java 25-open`)
 - **Gradle** (wird über den Wrapper `./gradlew` automatisch heruntergeladen)
-- Ein **Tibber API Token** (Demo-Token zum Testen: `5K4MVS-OjfWhK_4yrjOlFe1F6kJXPVf7eQYggo8ebAE`)
+- Ein **Tibber API Token** (Demo-Token zum Testen: `3A77EECF61BD445F47241A5A36202185C35AF3AF58609E19B53F3A8872AD7BE1-1`)
 - Optional: Docker für Integrationstests
 
 ### Setup
@@ -176,10 +176,11 @@ git commit -m "chore: ASK SDK auf 2.89.0 aktualisieren"
 
 ## Code-Stil
 
-- **Java 21** – gerne moderne Features nutzen: Records, Text Blocks, Pattern Matching, Switch Expressions
-- **Kein Lombok** – expliziter Code ist verständlicher als Magie
+- **Java 25** – moderne Features nutzen: Records, Text Blocks, Pattern Matching, Switch Expressions
+- **Lombok** – ausschließlich `@Slf4j` für Logger. Keine anderen Lombok-Annotationen (`@Data`, `@Builder` etc.) — expliziter Code bleibt verständlicher. `lombok.config` erzwingt das durch Compile-Fehler.
 - **Spring-Konventionen** – Constructor Injection statt Field Injection (`@Autowired`)
-- **Logging** – `org.slf4j.Logger` verwenden, kein `System.out.println`
+- **Logging** – `@Slf4j` (Lombok) verwenden. Kein `System.out.println`, keine manuellen `LoggerFactory.getLogger()`-Aufrufe. `accessToken` darf **niemals** geloggt werden.
+- **Lokales Logging** – Plaintext (Profil `local`, Standard). Für JSON-Output: `SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun`
 - **Javadoc** – öffentliche Klassen und Methoden kommentieren
 - **Testabdeckung** – neue Features bitte mit Unit-Tests absichern
 

@@ -3,3 +3,8 @@ server:
 
 tibber:
   api-url: https://api.tibber.com/v1-beta/gql
+
+# KI-generiert: Lokales Profil aktiviert Plaintext-Logging (in Prod via Env-Variable überschreiben)
+spring:
+  profiles:
+    active: local

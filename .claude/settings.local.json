@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew test *)",
+      "Bash(./gradlew cleanTest *)",
+      "Bash(jar tf *)",
+      "Bash(grep -v \"^\\\\s*$\")",
+      "Bash(./gradlew compileTestJava *)",
+      "Bash(xargs grep *)",
+      "Bash(awk '{sum+=$1} END {print \"Total tests:\", sum}')",
+      "Bash(awk '{sum+=$1} END {print \"Failures+Errors:\", sum}')",
+      "Bash(./gradlew clean *)",
+      "Bash(./gradlew compileJava *)",
+      "Bash(./gradlew build *)"
+    ]
+  }
+}

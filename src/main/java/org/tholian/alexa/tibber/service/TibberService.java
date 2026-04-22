@@ -1,3 +1,5 @@
+
+
 package org.tholian.alexa.tibber.service;
 
 import java.time.OffsetDateTime;
@@ -11,18 +13,19 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.intellij.lang.annotations.Language;
 import org.tholian.alexa.tibber.model.ConsumptionNode;
 import org.tholian.alexa.tibber.model.GraphQLRequest;
 import org.tholian.alexa.tibber.model.Price;
 import org.tholian.alexa.tibber.model.TibberResponse;
 
+@RequiredArgsConstructor
+@Slf4j
 @Service
 public class TibberService {
-
-	private static final Logger log = LoggerFactory.getLogger( TibberService.class );
 	private static final ZoneId BERLIN = ZoneId.of( "Europe/Berlin" );
 	private static final DateTimeFormatter TIME_FORMATTER =
 			DateTimeFormatter.ofPattern( "HH:mm", Locale.GERMAN );
@@ -39,7 +42,7 @@ public class TibberService {
 			        }
 			      }
 			      consumption(resolution: HOURLY, last: 1) {
-			        nodes { from to consumption unit cost }
+			        nodes { from to consumption cost }
 			      }
 			    }
 			  }
@@ -48,19 +51,15 @@ public class TibberService {
 
 	private final RestClient restClient;
 
-	public TibberService( RestClient restClient ) {
-		this.restClient = restClient;
-	}
-
 	public Price getCurrentPrice( String token ) {
 		TibberResponse response = query( token );
-		return response.data( ).viewer( ).homes( ).get( 0 )
+		return response.data( ).viewer( ).homes( ).getFirst()
 				.currentSubscription( ).priceInfo( ).current( );
 	}
 
 	public List<Price> getPriceList( String token ) {
 		TibberResponse response = query( token );
-		var priceInfo = response.data( ).viewer( ).homes( ).get( 0 )
+		var priceInfo = response.data( ).viewer( ).homes( ).getFirst()
 				.currentSubscription( ).priceInfo( );
 		List<Price> combined = new ArrayList<>( priceInfo.today( ) );
 		if ( priceInfo.tomorrow( ) != null ) {
@@ -71,12 +70,12 @@ public class TibberService {
 
 	public Optional<ConsumptionNode> getCurrentConsumption( String token ) {
 		TibberResponse response = query( token );
-		var nodes = response.data( ).viewer( ).homes( ).get( 0 )
+		var nodes = response.data( ).viewer( ).homes( ).getFirst()
 				.consumption( ).nodes( );
 		if ( nodes == null || nodes.isEmpty( ) ) {
 			return Optional.empty( );
 		}
-		return Optional.of( nodes.get( 0 ) );
+		return Optional.of( nodes.getFirst() );
 	}
 
 	public Optional<Price> getNextLowestPrice( String token ) {

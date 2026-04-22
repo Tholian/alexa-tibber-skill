@@ -1,3 +1,5 @@
+
+
 package org.tholian.alexa.tibber.controller;
 
 import com.amazon.ask.CustomSkill;
@@ -11,13 +13,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 public class SkillController {
-
-	private static final Logger log = LoggerFactory.getLogger( SkillController.class );
 
 	private final CustomSkill skill;
 	private final ObjectMapper objectMapper;

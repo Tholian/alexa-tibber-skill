@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  KI-generiert: Profil-sensitive Logging-Konfiguration.
+  Profil 'local': Plaintext mit MDC-Feldern für lokale Entwicklung.
+  Alle anderen Profile: JSON via LogstashEncoder für CloudWatch.
+-->
+<configuration>
+
+
+
+    <springProfile name="local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <!--
+                  KI-generiert: MDC-Felder intentName und requestId im Pattern sichtbar.
+                  %X{key} gibt den MDC-Wert aus, leerer String wenn nicht gesetzt.
+                -->
+                <charset>UTF-8</charset>
+                <pattern>%d{HH:mm:ss.SSS} %-5level [%X{intentName}][%X{requestId}][%X{userId}][%X{locale}] %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <!--
+              KI-generiert: LogstashEncoder schreibt alle MDC-Felder automatisch
+              als top-level JSON-Felder heraus – CloudWatch Logs Insights kann
+              direkt auf intentName, requestId, userId filtern.
+            -->
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>
