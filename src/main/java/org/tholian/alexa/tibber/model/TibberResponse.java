@@ -14,7 +14,12 @@ import org.jspecify.annotations.Nullable;
 public record TibberResponse( @Nullable Data data, @Nullable List<GraphQLError> errors ) {
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
-	public record GraphQLError( @Nullable String message ) {
+	public record GraphQLError( @Nullable String message, @Nullable Extensions extensions ) {
+	}
+
+	/** KI-generiert: GraphQL-Fehlererweiterung; Tibber liefert hier z. B. {@code code = "UNAUTHENTICATED"}. */
+	@JsonIgnoreProperties( ignoreUnknown = true )
+	public record Extensions( @Nullable String code ) {
 	}
 
 	@JsonIgnoreProperties( ignoreUnknown = true )

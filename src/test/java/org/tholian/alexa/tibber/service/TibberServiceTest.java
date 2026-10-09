@@ -21,7 +21,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.array;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.errorResponse;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.homeResponse;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.homesResponse;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.price;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.unauthenticatedResponse;
 
 /**
  * KI-generiert: Unit-Tests für TibberService gegen einen lokalen FakeTibberServer (echtes HTTP, kein Mock).
@@ -287,5 +289,78 @@ class TibberServiceTest {
         assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
                 .isInstanceOf(TibberApiException.class)
                 .hasMessageContaining("nicht erreichbar");
+    }
+
+    // -------------------------------------------------------------------------
+    // Ablehnung des Tokens (widerrufen/ungültig) und Token-Prüfung beim Account Linking
+    // -------------------------------------------------------------------------
+
+    @Test
+    void query_withHttp401_throwsAuthenticationException() {
+        server.respondWith(401, "{}");
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberAuthenticationException.class);
+    }
+
+    @Test
+    void query_withHttp403_throwsAuthenticationException() {
+        server.respondWith(403, "{}");
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberAuthenticationException.class);
+    }
+
+    @Test
+    void query_withGraphQlUnauthenticated_throwsAuthenticationException() {
+        server.respondWith(200, unauthenticatedResponse());
+
+        assertThatThrownBy(() -> service.getCurrentPrice("secret-token-123"))
+                .isInstanceOf(TibberAuthenticationException.class)
+                .message().doesNotContain("secret-token-123");
+    }
+
+    @Test
+    void query_withHttp400AndUnauthenticatedBody_throwsAuthenticationException() {
+        server.respondWith(400, unauthenticatedResponse());
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberAuthenticationException.class);
+    }
+
+    @Test
+    void query_withOtherGraphQlError_isNoAuthenticationError() {
+        server.respondWith(200, errorResponse("Something else went wrong"));
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isExactlyInstanceOf(TibberApiException.class);
+    }
+
+    @Test
+    void verifyToken_withHome_passesAndSendsMinimalQuery() {
+        server.respondWith(200, homesResponse("home-1"));
+
+        service.verifyToken("test-token");
+
+        assertThat(server.lastAuthorization()).isEqualTo("Bearer test-token");
+        // KI-generiert: Datensparsamkeit – die Prüfung fragt keine Preise oder Verbräuche ab
+        assertThat(server.lastRequestBody()).contains("homes").doesNotContain("priceInfo").doesNotContain("consumption");
+    }
+
+    @Test
+    void verifyToken_withoutHomes_throwsTibberApiException() {
+        server.respondWith(200, homesResponse());
+
+        assertThatThrownBy(() -> service.verifyToken("test-token"))
+                .isExactlyInstanceOf(TibberApiException.class)
+                .hasMessageContaining("Kein Zuhause");
+    }
+
+    @Test
+    void verifyToken_withRejectedToken_throwsAuthenticationException() {
+        server.respondWith(200, unauthenticatedResponse());
+
+        assertThatThrownBy(() -> service.verifyToken("test-token"))
+                .isInstanceOf(TibberAuthenticationException.class);
     }
 }

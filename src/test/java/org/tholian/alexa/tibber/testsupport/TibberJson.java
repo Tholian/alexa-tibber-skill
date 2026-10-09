@@ -37,4 +37,23 @@ public final class TibberJson {
                 {"data":null,"errors":[{"message":"%s"}]}
                 """.formatted(message);
     }
+
+    /** KI-generiert: GraphQL-Antwort, wie Tibber sie bei ungültigem oder widerrufenem Token liefert. */
+    public static String unauthenticatedResponse() {
+        return """
+                {"errors":[{"message":"Context creation failed: invalid token","extensions":{"code":"UNAUTHENTICATED"}}]}
+                """;
+    }
+
+    /** KI-generiert: Minimalantwort der Token-Prüfung (nur Home-IDs). */
+    public static String homesResponse(String... homeIds) {
+        StringBuilder homes = new StringBuilder();
+        for (int i = 0; i < homeIds.length; i++) {
+            if (i > 0) {
+                homes.append(',');
+            }
+            homes.append("{\"id\":\"").append(homeIds[i]).append("\"}");
+        }
+        return "{\"data\":{\"viewer\":{\"homes\":[" + homes + "]}}}";
+    }
 }

@@ -69,6 +69,18 @@ public class TibberService {
 			}
 			""";
 
+	// KI-generiert: Minimalabfrage für die Token-Prüfung beim Account Linking (Datensparsamkeit: nur Home-IDs)
+	@Language( "GraphQL" )
+	private static final String VERIFY_QUERY = """
+			{
+			  viewer {
+			    homes { id }
+			  }
+			}
+			""";
+
+	private static final String UNAUTHENTICATED = "UNAUTHENTICATED";
+
 	private final HttpClient httpClient;
 	private final ObjectMapper objectMapper;
 	private final URI apiUrl;
@@ -154,6 +166,18 @@ public class TibberService {
 		};
 	}
 
+	/**
+	 * KI-generiert: Prüft beim Account Linking, ob Tibber den Token akzeptiert und mindestens ein Zuhause liefert.
+	 *
+	 * @throws TibberAuthenticationException wenn Tibber den Token ablehnt
+	 * @throws TibberApiException            bei sonstigen Fehlern oder wenn kein Zuhause existiert
+	 */
+	public void verifyToken( String token ) {
+		if ( query( token, VERIFY_QUERY ).viewer( ).homes( ).isEmpty( ) ) {
+			throw new TibberApiException( "Kein Zuhause im Tibber-Konto hinterlegt" );
+		}
+	}
+
 	private TibberResponse.PriceInfo priceInfo( String token ) {
 		TibberResponse.CurrentSubscription subscription = firstHome( token ).currentSubscription( );
 		if ( subscription == null ) {
@@ -163,7 +187,7 @@ public class TibberService {
 	}
 
 	private TibberResponse.Home firstHome( String token ) {
-		List<TibberResponse.Home> homes = query( token ).viewer( ).homes( );
+		List<TibberResponse.Home> homes = query( token, PRICE_QUERY ).viewer( ).homes( );
 		if ( homes.isEmpty( ) ) {
 			throw new TibberApiException( "Kein Zuhause im Tibber-Konto hinterlegt" );
 		}
@@ -173,15 +197,15 @@ public class TibberService {
 	/**
 	 * KI-generiert: Führt die GraphQL-Abfrage aus und liefert den {@code data}-Teil.
 	 * Wirft {@link TibberApiException} bei Netzwerkfehler/Timeout, HTTP-Status ≠ 200,
-	 * GraphQL-Fehlern oder unlesbarer Antwort.
+	 * GraphQL-Fehlern oder unlesbarer Antwort; {@link TibberAuthenticationException} bei abgelehntem Token.
 	 */
-	private TibberResponse.Data query( String token ) {
+	private TibberResponse.Data query( String token, String graphQl ) {
 		HttpRequest request = HttpRequest.newBuilder( apiUrl )
 				.timeout( requestTimeout )
 				// SICHERHEIT: Token nur im Header, nie im Log
 				.header( "Authorization", "Bearer " + token )
 				.header( "Content-Type", "application/json" )
-				.POST( HttpRequest.BodyPublishers.ofString( toJson( new GraphQLRequest( PRICE_QUERY ) ) ) )
+				.POST( HttpRequest.BodyPublishers.ofString( toJson( new GraphQLRequest( graphQl ) ) ) )
 				.build( );
 
 		// KI-generiert: HttpRequest.timeout begrenzt nur bis zu den Response-Headern. Damit auch ein langsamer
@@ -204,11 +228,19 @@ public class TibberService {
 			throw new TibberApiException( "Tibber-Aufruf unterbrochen", e );
 		}
 
-		if ( response.statusCode( ) != 200 ) {
-			throw new TibberApiException( "Tibber API antwortet mit HTTP " + response.statusCode( ) );
+		int status = response.statusCode( );
+		// SICHERHEIT: Abgelehnter Token → eigene Exception, damit der Skill zur Neuverknüpfung auffordert
+		if ( status == 401 || status == 403 ) {
+			throw new TibberAuthenticationException( "Tibber lehnt den Access-Token ab (HTTP " + status + ")" );
 		}
-
-		TibberResponse body = fromJson( response.body( ) );
+		@Nullable TibberResponse parsed = status == 200 ? fromJson( response.body( ) ) : tryParse( response.body( ) );
+		if ( parsed != null && isUnauthenticated( parsed ) ) {
+			throw new TibberAuthenticationException( "Tibber lehnt den Access-Token ab (UNAUTHENTICATED)" );
+		}
+		if ( status != 200 || parsed == null ) {
+			throw new TibberApiException( "Tibber API antwortet mit HTTP " + status );
+		}
+		TibberResponse body = parsed;
 		if ( body.errors( ) != null && !body.errors( ).isEmpty( ) ) {
 			String messages = body.errors( ).stream( )
 					.map( error -> String.valueOf( error.message( ) ) )
@@ -236,5 +268,19 @@ public class TibberService {
 		} catch ( JsonProcessingException e ) {
 			throw new TibberApiException( "Tibber-Antwort nicht lesbar", e );
 		}
+	}
+
+	/** KI-generiert: Wie {@link #fromJson(String)}, liefert aber {@code null} statt einer Exception (Fehlerantworten). */
+	private @Nullable TibberResponse tryParse( String json ) {
+		try {
+			return objectMapper.readValue( json, TibberResponse.class );
+		} catch ( JsonProcessingException e ) {
+			return null;
+		}
+	}
+
+	private static boolean isUnauthenticated( TibberResponse response ) {
+		return response.errors( ) != null && response.errors( ).stream( )
+				.anyMatch( error -> error.extensions( ) != null && UNAUTHENTICATED.equals( error.extensions( ).code( ) ) );
 	}
 }

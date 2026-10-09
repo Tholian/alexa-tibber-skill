@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.tholian.alexa.tibber.model.ConsumptionNode;
 import org.tholian.alexa.tibber.model.Price;
+import org.tholian.alexa.tibber.service.TibberAuthenticationException;
 import org.tholian.alexa.tibber.service.TibberService;
 
 import java.net.URI;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * KI-generiert: Integrationstest gegen die echte Tibber GraphQL API.
@@ -61,5 +63,17 @@ class TibberServiceIntegrationTest {
             assertThat(node.from()).isNotBlank();
             assertThat(node.to()).isNotBlank();
         });
+    }
+
+    @Test
+    void verifyToken_withDemoToken_passes() {
+        tibberService.verifyToken(token);
+    }
+
+    @Test
+    void verifyToken_withInvalidToken_throwsAuthenticationException() {
+        // KI-generiert: Pinnt das reale Ablehnungsverhalten der Tibber API (Statuscode bzw. GraphQL-Code)
+        assertThatThrownBy(() -> tibberService.verifyToken("invalid-token-for-integration-test"))
+                .isInstanceOf(TibberAuthenticationException.class);
     }
 }
