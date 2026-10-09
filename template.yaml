@@ -1,0 +1,49 @@
+# KI-generiert: AWS SAM Template für den Alexa Tibber Skill (AWS Lambda, Java 25, SnapStart).
+# Deployment erfolgt ausschließlich manuell durch den Maintainer (siehe README, Abschnitt "Deployment").
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Alexa Tibber Skill
+
+Parameters:
+  AlexaSkillId:
+    Type: String
+    Description: Skill-ID aus der Alexa Developer Console (amzn1.ask.skill.<uuid>)
+    AllowedPattern: "^amzn1\\.ask\\.skill\\.[0-9a-f-]+$"
+
+Resources:
+  TibberSkillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: build/distributions/alexa-tibber-skill.zip
+      Handler: org.tholian.alexa.tibber.TibberSkillStreamHandler::handleRequest
+      Runtime: java25
+      Architectures:
+        - arm64
+      MemorySize: 1024
+      # Alexa wartet maximal 8 Sekunden auf eine Antwort
+      Timeout: 8
+      SnapStart:
+        ApplyOn: PublishedVersions
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          ALEXA_SKILL_ID: !Ref AlexaSkillId
+          TIBBER_API_URL: https://api.tibber.com/v1-beta/gql
+      Events:
+        # SICHERHEIT: Resource Policy – nur dieser Alexa Skill darf die Funktion aufrufen
+        AlexaTrigger:
+          Type: AlexaSkill
+          Properties:
+            SkillId: !Ref AlexaSkillId
+
+  # Datensparsamkeit: Logs (enthalten die pseudonyme Alexa userId) nur 14 Tage aufbewahren
+  TibberSkillLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${TibberSkillFunction}
+      RetentionInDays: 14
+
+Outputs:
+  SkillEndpointArn:
+    Description: In der Alexa Developer Console als Endpoint (Default Region) eintragen
+    Value: !Ref TibberSkillFunctionAliaslive
