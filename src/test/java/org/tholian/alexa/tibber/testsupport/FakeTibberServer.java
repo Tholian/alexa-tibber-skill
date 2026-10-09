@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * KI-generiert: Minimaler HTTP-Server als Ersatz für die Tibber GraphQL API in Tests.
  * Läuft auf einem freien Port auf der Loopback-Adresse, liefert eine konfigurierbare
  * Antwort und merkt sich den letzten Request (Authorization-Header + Body) für Assertions.
- * Ersetzt das frühere Mocking der RestClient-Fluent-Chain durch echtes HTTP –
+ * Ersetzt das frühere Mocking des HTTP-Clients durch echtes HTTP –
  * damit werden Serialisierung, Header und Timeouts realistisch mitgetestet.
  */
 public final class FakeTibberServer implements AutoCloseable {
