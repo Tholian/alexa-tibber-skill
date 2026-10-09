@@ -44,6 +44,8 @@ Bitte geh respektvoll miteinander um – konstruktive Kritik ist immer willkomme
 - Warum ist das für andere Nutzer nützlich?
 - Hast du schon eine Idee zur Umsetzung?
 
+Angenommene Vorschläge werden in die [BACKLOG.md](BACKLOG.md) unter „Feature Requests“ übernommen.
+
 ### 🔧 Code beisteuern
 
 Schau in die offenen Issues – besonders solche mit dem Label `good first issue` eignen sich für den Einstieg.  

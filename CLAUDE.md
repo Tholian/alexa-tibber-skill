@@ -99,6 +99,10 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 - Account Linking: Implicit Grant, Authorization URI = Stack-Output `AccountLinkingAuthorizationUri`, Parameter `LinkingClientId`, `LinkingRedirectUris`, `PrivacyPolicyUrl`.
 - Demo-Token: im Tibber Developer Portal; nur als Umgebungsvariable `TIBBER_DEMO_TOKEN` verwenden, nie einchecken. Der Demo-Account liefert Preise in **SEK**.
 
+## Backlog
+
+Offene Aufgaben, technische Schulden und Feature Requests stehen in `BACKLOG.md`. Neue Punkte (auch aus Reviews) dort im passenden Abschnitt aufnehmen; erledigte mit Datum und Commit nach „Erledigt“ verschieben. Keine personenbezogenen Daten oder Tokens eintragen.
+
 ## Build & Test
 
 ```bash

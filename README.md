@@ -333,6 +333,8 @@ Beiträge sind herzlich willkommen! Bitte lies zuerst die [CONTRIBUTING.md](CONT
 - Branching-Strategie und Commit-Konventionen
 - Den Pull-Request-Prozess
 
+Offene Aufgaben, technische Schulden und Feature Requests stehen in der [BACKLOG.md](BACKLOG.md).
+
 ---
 
 ## Lizenz
