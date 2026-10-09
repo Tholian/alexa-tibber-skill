@@ -277,4 +277,15 @@ class TibberServiceTest {
                 .isInstanceOf(TibberApiException.class)
                 .hasMessageContaining("nicht erreichbar");
     }
+
+    @Test
+    void query_whenBodyTooSlow_throwsTibberApiException() {
+        // KI-generiert: Header kommen sofort, der Body erst nach 2 s – der Gesamt-Timeout (500 ms) muss greifen
+        server.respondWith(200, homeResponse(price(0.30, "EXPENSIVE", PAST), "[]", "null", "[]"));
+        server.delayBodyBy(Duration.ofSeconds(2));
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("nicht erreichbar");
+    }
 }

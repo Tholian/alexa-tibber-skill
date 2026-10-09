@@ -48,4 +48,49 @@ class SkillSettingsTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ALEXA_SKILL_ID");
     }
+
+    @Test
+    void fromEnvironment_withHttpNonLoopbackUrl_failsFast() {
+        assertThatThrownBy(() -> SkillSettings.fromEnvironment(Map.of(
+                "ALEXA_SKILL_ID", "amzn1.ask.skill.abc",
+                "TIBBER_API_URL", "http://api.example.com/gql")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TIBBER_API_URL");
+    }
+
+    @Test
+    void fromEnvironment_withHttpsUrl_isAccepted() {
+        var settings = SkillSettings.fromEnvironment(Map.of(
+                "ALEXA_SKILL_ID", "amzn1.ask.skill.abc",
+                "TIBBER_API_URL", "https://api.example.com/gql"));
+
+        assertThat(settings.tibberApiUrl()).isEqualTo(URI.create("https://api.example.com/gql"));
+    }
+
+    @Test
+    void fromEnvironment_withHttpIpv6Loopback_isAccepted() {
+        var settings = SkillSettings.fromEnvironment(Map.of(
+                "ALEXA_SKILL_ID", "amzn1.ask.skill.abc",
+                "TIBBER_API_URL", "http://[::1]:9999/gql"));
+
+        assertThat(settings.tibberApiUrl().getPort()).isEqualTo(9999);
+    }
+
+    @Test
+    void fromEnvironment_withInvalidUrl_failsFast() {
+        assertThatThrownBy(() -> SkillSettings.fromEnvironment(Map.of(
+                "ALEXA_SKILL_ID", "amzn1.ask.skill.abc",
+                "TIBBER_API_URL", "not a url")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TIBBER_API_URL");
+    }
+
+    @Test
+    void fromEnvironment_withRelativeUrl_failsFast() {
+        assertThatThrownBy(() -> SkillSettings.fromEnvironment(Map.of(
+                "ALEXA_SKILL_ID", "amzn1.ask.skill.abc",
+                "TIBBER_API_URL", "/gql")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TIBBER_API_URL");
+    }
 }

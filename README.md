@@ -67,8 +67,14 @@ Die Tests spielen komplette Alexa-Requests (JSON) durch den Lambda-Einstieg und 
 
 Optional, mit dem öffentlichen Demo-Token aus dem [Tibber Developer Portal](https://developer.tibber.com/):
 
+Git Bash:
 ```bash
 TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
+```
+
+PowerShell:
+```powershell
+$env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberServiceIntegrationTest"
 ```
 
 Ohne gesetzte Variable wird der Test übersprungen. Tokens nie einchecken.
@@ -197,14 +203,15 @@ aws sso login --profile alexa-tibber    # nur falls die Anmeldung abgelaufen ist
 sam deploy --profile alexa-tibber       # nutzt die gespeicherten Antworten aus samconfig.toml
 ```
 
-Jedes Deployment veröffentlicht eine neue Lambda-Version; SnapStart erstellt dafür einen Snapshot, und der Alias `live` zeigt automatisch darauf. In der Alexa Developer Console muss nichts geändert werden.
+Jedes Deployment veröffentlicht eine neue Lambda-Version; SnapStart erstellt dafür einen Snapshot, und der Alias `live` zeigt automatisch darauf. In der Alexa Developer Console muss nichts geändert werden. Ausnahme: Änderungen an `skill-package/interactionModels/custom/de-DE.json` müssen zusätzlich im JSON-Editor der Alexa Developer Console eingefügt und dort neu gebaut werden (`sam deploy` aktualisiert das Interaktionsmodell nicht).
 
 ### Logs und Fehlersuche
 
 Logs live mitlesen:
 ```powershell
-sam logs --stack-name alexa-tibber-skill --name TibberSkillFunction --tail --profile alexa-tibber
+sam logs --cw-log-group /aws/lambda/alexa-tibber-skill --tail --profile alexa-tibber
 ```
+Der Name der Log-Gruppe folgt dem Stack-Namen (`/aws/lambda/<Stack-Name>`); wurde der Stack unter einem anderen Namen angelegt, den Namen entsprechend anpassen.
 Alternativ in der AWS-Konsole unter *CloudWatch* → *Logs Insights*, z. B. nur Fehler:
 ```
 fields @timestamp, level, intentName, message
@@ -252,7 +259,7 @@ Alexa ──(Lambda-Invoke, nur diese Skill-ID)──▶ TibberSkillStreamHandle
 
 - Die Lambda-Funktion darf nur von diesem Alexa Skill aufgerufen werden (Alexa-Trigger mit Skill-ID); zusätzlich prüft das ASK SDK die Skill-ID jedes Requests.
 - Der Tibber Access Token wird **nie** geloggt und nur zur Laufzeit im Speicher gehalten.
-- Logs enthalten keine personenbezogenen Daten im Klartext – nur die pseudonyme Alexa User-ID.
+- Logs enthalten als einzigen Personenbezug die pseudonymisierte Alexa User-ID (nach DSGVO ein personenbezogenes Datum); sie wird 14 Tage aufbewahrt und danach gelöscht.
 - Tibber-Aufrufe haben harte Timeouts (2 s Verbindungsaufbau, 4 s Antwort), damit Alexa nie in ihr 8-Sekunden-Limit läuft.
 
 ---

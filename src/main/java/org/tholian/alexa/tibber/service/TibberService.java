@@ -1,6 +1,5 @@
 package org.tholian.alexa.tibber.service;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -15,6 +14,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -181,13 +184,22 @@ public class TibberService {
 				.POST( HttpRequest.BodyPublishers.ofString( toJson( new GraphQLRequest( PRICE_QUERY ) ) ) )
 				.build( );
 
+		// KI-generiert: HttpRequest.timeout begrenzt nur bis zu den Response-Headern. Damit auch ein langsamer
+		// Body den Alexa-Limit nicht sprengt, wird die gesamte Antwort asynchron mit hartem Gesamt-Timeout abgewartet.
+		CompletableFuture<HttpResponse<String>> future =
+				httpClient.sendAsync( request, HttpResponse.BodyHandlers.ofString( ) );
 		HttpResponse<String> response;
 		try {
-			response = httpClient.send( request, HttpResponse.BodyHandlers.ofString( ) );
-		} catch ( IOException e ) {
-			// KI-generiert: umfasst auch HttpTimeoutException (Subklasse von IOException)
-			throw new TibberApiException( "Tibber API nicht erreichbar: " + e.getClass( ).getSimpleName( ), e );
+			response = future.get( requestTimeout.toMillis( ), TimeUnit.MILLISECONDS );
+		} catch ( TimeoutException e ) {
+			future.cancel( true );
+			throw new TibberApiException( "Tibber API nicht erreichbar: TimeoutException", e );
+		} catch ( ExecutionException e ) {
+			// KI-generiert: Ursache auspacken (z. B. ConnectException, HttpTimeoutException) für eine aussagekräftige Meldung
+			Throwable cause = e.getCause( ) != null ? e.getCause( ) : e;
+			throw new TibberApiException( "Tibber API nicht erreichbar: " + cause.getClass( ).getSimpleName( ), cause );
 		} catch ( InterruptedException e ) {
+			future.cancel( true );
 			Thread.currentThread( ).interrupt( );
 			throw new TibberApiException( "Tibber-Aufruf unterbrochen", e );
 		}

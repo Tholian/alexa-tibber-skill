@@ -32,6 +32,9 @@ dependencies {
             because("ask-sdk-lambda-support bringt transitiv commons-io 2.7 mit (CVE-2021-29425)")
         }
     }
+    // KI-generiert: Jackson wird direkt importiert (TibberService, Modell) und daher explizit deklariert;
+    // die Version entspricht der bereits aufgelösten (ask-sdk-model-runtime bringt ältere mit)
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
     // Lambda-Laufzeit-Interfaces (RequestStreamHandler, Context)
     implementation("com.amazonaws:aws-lambda-java-core:1.2.3")
     // SLF4J-API explizit auf 2.x – ask-sdk-core bringt transitiv 1.7.x mit, Logback 1.5 benötigt 2.x
@@ -55,6 +58,12 @@ dependencies {
     mockitoAgent("org.mockito:mockito-core:5.20.0") {
         isTransitive = false
     }
+}
+
+// KI-generiert: ask-sdk-model-runtime bringt log4j-api/log4j-slf4j-impl 2.8.2 transitiv mit. Wir loggen über
+// SLF4J + Logback, daher sind sie toter Ballast (und Scanner-Rauschen) und werden aus allen Classpaths (inkl. Test) entfernt.
+configurations.configureEach {
+    exclude(group = "org.apache.logging.log4j")
 }
 
 tasks.test {

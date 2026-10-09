@@ -166,7 +166,7 @@ git commit -m "chore: ASK SDK auf 2.89.0 aktualisieren"
 - **Javadoc** – öffentliche Klassen und Methoden kommentieren
 - **Testabdeckung** – neue Features bitte mit Unit-Tests absichern
 
-Formatierung: Der Code folgt dem Standard-IntelliJ-Codestyle für Java. Bitte vor dem Commit formatieren (`Code → Reformat Code` in IntelliJ, oder `./gradlew spotlessApply` sobald konfiguriert).
+Formatierung: Hauptcode mit Tabs und Leerzeichen innerhalb von Klammern (`foo( x )`, `bar( )`); Tests mit 4 Leerzeichen und ohne Klammer-Leerzeichen. Kommentare auf Deutsch (mit korrekten Umlauten); von einer KI geschriebene Kommentare und Javadoc beginnen mit `KI-generiert:`. Annotationen alphabetisch sortieren.
 
 ---
 

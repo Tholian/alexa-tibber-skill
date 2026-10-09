@@ -112,7 +112,12 @@ class TibberServiceIntegrationTest { ... }
 
 Manueller Aufruf (Demo-Token aus dem Tibber Developer Portal, nie einchecken):
 ```bash
+# Git Bash
 TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
+```
+```powershell
+# PowerShell
+$env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberServiceIntegrationTest"
 ```
 
 **Tibber GraphQL-Schema Hinweise:**

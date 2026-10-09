@@ -6,7 +6,7 @@
 - **Java 25** (JDK toolchain), Anwendungscode in Java
 - **Kotlin DSL** ausschließlich für Gradle-Dateien (`.gradle.kts`), **Gradle 9.4**
 - **ASK SDK 2.86.0** (`ask-sdk-core` + `ask-sdk-lambda-support`)
-- **java.net.http.HttpClient** + Jackson 2 (transitiv aus dem ASK SDK) für die Tibber GraphQL API
+- **java.net.http.HttpClient** + Jackson 2 (`jackson-databind` 2.18.3 explizit deklariert; log4j aus dem ASK SDK wird per Exclude entfernt) für die Tibber GraphQL API
 - **JUnit 6**, AssertJ, Mockito
 - **Lombok** nur für `@Slf4j`
 - **JSpecify** – `@NullMarked` je Package, `@Nullable` explizit
@@ -34,7 +34,7 @@ src/main/java/org/tholian/alexa/tibber/
 ├── TibberSkillStreamHandler.java     # Lambda-Einstieg (::handleRequest)
 ├── config/
 │   ├── SkillFactory.java             # manuelle Verdrahtung aller Komponenten
-│   └── SkillSettings.java            # ALEXA_SKILL_ID (Pflicht), TIBBER_API_URL (optional)
+│   └── SkillSettings.java            # ALEXA_SKILL_ID (Pflicht), TIBBER_API_URL (optional; nur https, http nur Loopback – sonst Init-Fehler)
 ├── handler/                          # 9 Request-Handler, Catch-all UnhandledRequestHandler, 2 Interceptoren, GenericExceptionHandler
 ├── model/                            # Records für die Tibber GraphQL API
 └── service/
@@ -58,7 +58,7 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 - **Lambda-Einstieg:** öffentlicher No-Arg-Konstruktor liest `System.getenv()`, package-privater Konstruktor mit `Map` für Tests. Der Skill wird einmal pro Execution Environment gebaut (SnapStart).
 - **Absicherung:** Alexa-Trigger der Lambda (Resource Policy auf die Skill-ID) + `withSkillId(...)` im ASK SDK. Eine Request-Signaturprüfung ist nur bei HTTPS-Endpoints nötig, nicht bei Lambda.
 - **Fail-fast:** ohne `ALEXA_SKILL_ID` schlägt der Lambda-Init fehl.
-- **Timeouts:** Tibber Connect 2 s, Request 4 s (Alexa bricht nach 8 s ab). Fehler → `TibberApiException` (Message ohne Token) → Handler sprechen eine Fehlermeldung.
+- **Timeouts:** Tibber Connect 2 s, Request 4 s als Gesamt-Timeout inkl. Body (`sendAsync` + `future.get`; Alexa bricht nach 8 s ab). Fehler → `TibberApiException` (Message ohne Token) → Handler sprechen eine Fehlermeldung.
 - **Tibber Token via Alexa Account Linking** – aus `context.System.user.accessToken`.
 - **Preise in Cent**, **Timezone Europe/Berlin**, Preisliste = `today` + `tomorrow`; `getNextLowestPrice`/`getNextHighestPrice` filtern auf Zukunft über die injizierte `Clock`.
 - **`UnhandledRequestHandler`** ist ein Catch-all und wird in `SkillFactory.create` als LETZTER Handler registriert: ASK SDK 2.86.0 liefert bei fehlendem passendem Handler `null` (keine Exception) – Exception-Handler sehen unbekannte Intents nie. `GenericExceptionHandler` behandelt ausschließlich geworfene Exceptions und antwortet gesprochen statt mit Lambda-Fehler.
@@ -67,7 +67,7 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 
 ## Logging
 
-- Produktion: JSON via `LogstashEncoder` (`logback.xml`) → CloudWatch, Retention 14 Tage (SAM).
+- Produktion: JSON via `LogstashEncoder` (`logback.xml`) → CloudWatch, Retention 14 Tage (SAM); Log-Gruppe `/aws/lambda/<Stack-Name>`, an die Funktion per `LoggingConfig` gebunden.
 - Tests: Plaintext mit MDC-Feldern (`logback-test.xml`).
 - MDC wird zu Beginn jedes Requests geleert (`LoggingInterceptor`) und danach (`MDCCleanupInterceptor`) – wichtig für warme Lambda-Instanzen.
 
@@ -98,6 +98,9 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 ```bash
 ./gradlew build                                  # Tests + build/distributions/alexa-tibber-skill.zip
 ./gradlew test --tests "*.TibberServiceTest"
+# Git Bash:
 TIBBER_DEMO_TOKEN=<token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
+# PowerShell:
+$env:TIBBER_DEMO_TOKEN = '<token>'; .\gradlew.bat test --tests "*.TibberServiceIntegrationTest"
 # Deployment (sam deploy) nur manuell durch den Maintainer – siehe README
 ```

@@ -25,6 +25,10 @@ Resources:
       SnapStart:
         ApplyOn: PublishedVersions
       AutoPublishAlias: live
+      # Die Funktion hängt von der Log-Gruppe ab: So existiert die Gruppe (mit Retention), bevor die
+      # SnapStart-Initialisierung erstmals loggt – sonst legt Lambda sie selbst an und CloudFormation scheitert.
+      LoggingConfig:
+        LogGroup: !Ref TibberSkillLogGroup
       Environment:
         Variables:
           ALEXA_SKILL_ID: !Ref AlexaSkillId
@@ -40,7 +44,8 @@ Resources:
   TibberSkillLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${TibberSkillFunction}
+      # Fester Name (folgt dem Stack-Namen), unabhängig von der Funktion – vermeidet eine Abhängigkeitsschleife
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}
       RetentionInDays: 14
 
 Outputs:

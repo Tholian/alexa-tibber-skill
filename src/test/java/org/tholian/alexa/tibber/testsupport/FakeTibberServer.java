@@ -26,6 +26,7 @@ public final class FakeTibberServer implements AutoCloseable {
     private volatile int status = 200;
     private volatile String responseBody = "{}";
     private volatile Duration delay = Duration.ZERO;
+    private volatile Duration bodyDelay = Duration.ZERO;
     private volatile String lastAuthorization;
     private volatile String lastRequestBody;
 
@@ -45,6 +46,9 @@ public final class FakeTibberServer implements AutoCloseable {
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(status, bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
+                // KI-generiert: Header sind bereits raus (volle Content-Length), der Body folgt erst nach der Pause
+                out.flush();
+                pause(bodyDelay);
                 out.write(bytes);
             }
         });
@@ -66,6 +70,14 @@ public final class FakeTibberServer implements AutoCloseable {
     /** KI-generiert: Verzögert jede Antwort – zum Testen der Client-Timeouts. */
     public void delayResponsesBy(Duration delay) {
         this.delay = delay;
+    }
+
+    /**
+     * KI-generiert: Sendet die Header sofort (mit voller Content-Length) und schreibt den Body erst nach
+     * der Pause – zum Testen eines langsamen Bodys, den ein reiner Header-Timeout nicht erfasst.
+     */
+    public void delayBodyBy(Duration delay) {
+        this.bodyDelay = delay;
     }
 
     public String lastAuthorization() {

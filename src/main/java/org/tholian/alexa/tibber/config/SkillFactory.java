@@ -39,6 +39,10 @@ public final class SkillFactory {
 	private SkillFactory( ) {
 	}
 
+	// KI-generiert: Die SDK-Builder-Methoden (addRequestHandlers/-Interceptors) haben generische Varargs-Parameter
+	// (z. B. GenericRequestHandler<HandlerInput, Optional<Response>>...); der Compiler muss dafür ein generisches
+	// Array anlegen. Das ist hier unbedenklich (nur lesend verwendet) und lässt sich auf Aufruferseite nicht vermeiden.
+	@SuppressWarnings( "unchecked" )
 	public static CustomSkill create( SkillSettings settings ) {
 		HttpClient httpClient = HttpClient.newBuilder( )
 				.connectTimeout( TIBBER_CONNECT_TIMEOUT )
