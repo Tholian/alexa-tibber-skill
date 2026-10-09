@@ -1,0 +1,67 @@
+# KI-generiert: CI-Pipeline – baut den Skill, führt alle Tests aus und stellt das Lambda-Paket als Artefakt bereit.
+# Kein Deployment: `sam deploy` bleibt bewusst ein manueller Schritt des Maintainers (siehe README).
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+# KI-generiert: Ältere Läufe desselben Branches/PRs abbrechen, sobald ein neuer Commit kommt
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# KI-generiert: SICHERHEIT: Minimalrechte für das GITHUB_TOKEN – der Workflow liest nur den Code
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # KI-generiert: SICHERHEIT: Token nicht in .git/config ablegen – spätere Schritte brauchen keinen Git-Zugriff
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # KI-generiert: Richtet Gradle-Caching ein und prüft die Prüfsumme des Gradle-Wrappers
+      # SICHERHEIT: Die Wrapper-Validierung erkennt manipulierte gradle-wrapper.jar-Dateien (z. B. aus fremden PRs)
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      # KI-generiert: `build` führt alle Tests aus und erzeugt build/distributions/alexa-tibber-skill.zip.
+      # SICHERHEIT: TIBBER_DEMO_TOKEN wird bewusst NICHT gesetzt – der Integrationstest sendet Daten an Tibber
+      # und wird ohne Token übersprungen.
+      - name: Build and test
+        run: ./gradlew build --no-daemon
+
+      # KI-generiert: Testberichte auch bei Fehlschlag hochladen, damit fehlgeschlagene Tests nachvollziehbar sind
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/
+            build/test-results/
+          retention-days: 7
+
+      - name: Upload Lambda package
+        uses: actions/upload-artifact@v5
+        with:
+          name: alexa-tibber-skill
+          path: build/distributions/alexa-tibber-skill.zip
+          if-no-files-found: error
+          retention-days: 7

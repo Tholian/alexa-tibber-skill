@@ -27,6 +27,7 @@
 ## Projektstruktur
 
 ```
+.github/workflows/ci.yml                            # GitHub Actions: build + Tests, Lambda-Zip als Artefakt (kein Deployment)
 template.yaml                                       # AWS SAM (Lambda, Alias "live", Alexa-Trigger, Log-Retention)
 skill-package/interactionModels/custom/de-DE.json   # Interaction Model (deutsche Utterances)
 
