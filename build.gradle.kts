@@ -23,6 +23,7 @@ dependencies {
 
     // Alexa SDK (ask-sdk-servlet-support wird ausgeschlossen: javax.servlet kollidiert mit Jakarta EE 11)
     compileOnly("org.jetbrains:annotations:24.1.0")
+    compileOnly("org.jspecify:jspecify:1.0.0")
 
     // KI-generiert: JSON-Logging für CloudWatch via Logstash-Format
     compileOnly("org.projectlombok:lombok")

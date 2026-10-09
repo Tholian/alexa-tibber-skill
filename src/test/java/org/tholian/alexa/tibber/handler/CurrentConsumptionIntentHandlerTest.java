@@ -69,7 +69,7 @@ class CurrentConsumptionIntentHandlerTest {
         var input = HandlerTestHelper.intentInput("GetCurrentConsumptionIntent", "test-token");
         var node = new ConsumptionNode(
                 "2026-04-22T13:00:00+02:00", "2026-04-22T14:00:00+02:00",
-                0.5, "kWh", 0.125);
+                0.5, 0.125);
         when(tibberService.getCurrentConsumption("test-token")).thenReturn(Optional.of(node));
         when(tibberService.formatTime("2026-04-22T13:00:00+02:00")).thenReturn("13:00 Uhr");
 
@@ -87,7 +87,7 @@ class CurrentConsumptionIntentHandlerTest {
         // KI-generiert: Testfall für ConsumptionNode mit null-Werten (Daten noch nicht vollständig)
         var node = new ConsumptionNode(
                 "2026-04-22T13:00:00+02:00", "2026-04-22T14:00:00+02:00",
-                null, "kWh", null);
+                null, null);
         when(tibberService.getCurrentConsumption("test-token")).thenReturn(Optional.of(node));
         when(tibberService.formatTime("2026-04-22T13:00:00+02:00")).thenReturn("13:00 Uhr");
 

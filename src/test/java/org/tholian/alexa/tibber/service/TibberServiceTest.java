@@ -1,180 +1,108 @@
-
 package org.tholian.alexa.tibber.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-import org.springframework.web.client.RestClient;
 import org.tholian.alexa.tibber.model.ConsumptionNode;
 import org.tholian.alexa.tibber.model.Price;
-import org.tholian.alexa.tibber.model.TibberResponse;
+import org.tholian.alexa.tibber.testsupport.FakeTibberServer;
 
-import java.time.OffsetDateTime;
+import java.net.http.HttpClient;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.array;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.errorResponse;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.homeResponse;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.price;
 
 /**
- * KI-generiert: Unit-Tests für TibberService – Tasks 1, 2 und 3.
- * Testet Formatierungsmethoden, API-Methoden und Filter-Methoden.
+ * KI-generiert: Unit-Tests für TibberService gegen einen lokalen FakeTibberServer (echtes HTTP, kein Mock).
+ * Die Uhr ist fest auf 2026-06-15T10:00:00Z gestellt, damit Vergangenheits-/Zukunftsfilter deterministisch sind.
  *
- * Sicherheitshinweis: Der echte RestClient wird durch einen Mock ersetzt –
- * es findet kein Netzwerkzugriff und kein Umgang mit echten Tokens statt.
+ * Sicherheitshinweis: Es werden ausschließlich Fantasie-Tokens verwendet; kein Netzwerkzugriff nach außen.
  */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class TibberServiceTest {
 
-    @Mock
-    private RestClient restClient;
+    private static final Instant NOW = Instant.parse("2026-06-15T10:00:00Z");
+    private static final String PAST = "2026-06-15T09:00:00Z";
+    private static final String FUTURE_1 = "2026-06-15T11:00:00Z";
+    private static final String FUTURE_2 = "2026-06-15T12:00:00Z";
 
-    // KI-generiert: RequestBodySpec statt RequestBodyUriSpec verwenden, da
-    // header() auf RequestBodyUriSpec die Rückgabe von RequestBodySpec hat –
-    // damit wird die gesamte Kette über einen einzigen Mock abgebildet.
-    @Mock
-    private RestClient.RequestBodySpec bodySpec;
-
-    @Mock
-    private RestClient.RequestBodyUriSpec postSpec;
-
-    @Mock
-    private RestClient.ResponseSpec responseSpec;
-
+    private FakeTibberServer server;
     private TibberService service;
 
     @BeforeEach
     void setUp() {
-        // KI-generiert: Fluent-Chain manuell aufbauen:
-        //   restClient.post()             → postSpec  (RequestBodyUriSpec)
-        //   postSpec.header(*, *)         → bodySpec  (RequestBodySpec – Rückgabetyp von header())
-        //   bodySpec.body(*)              → bodySpec  (RequestBodySpec – Rückgabetyp von body())
-        //   bodySpec.retrieve()           → responseSpec
-        //   responseSpec.body(Class)      → wird pro Test gesetzt
-        //
-        // lenient() verhindert UnnecessaryStubbingException in reinen Format-Tests.
-        lenient().when(restClient.post()).thenReturn(postSpec);
-        // KI-generiert: anyString() für den Header-Namen, any(String[].class) für den Varargs-Wert
-        lenient().when(postSpec.header(anyString(), any(String[].class))).thenReturn(bodySpec);
-        lenient().when(bodySpec.body(any(Object.class))).thenReturn(bodySpec);
-        lenient().when(bodySpec.retrieve()).thenReturn(responseSpec);
-        service = new TibberService(restClient);
+        server = new FakeTibberServer();
+        service = new TibberService(HttpClient.newHttpClient(), new ObjectMapper(), server.uri(),
+                Duration.ofMillis(500), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
-    /**
-     * KI-generiert: Hilfsmethode zum Aufbau einer vollständigen TibberResponse
-     * aus den einzelnen Bestandteilen (current price, today, tomorrow, consumption nodes).
-     */
-    private TibberResponse buildResponse(Price current, List<Price> today, List<Price> tomorrow,
-                                          List<ConsumptionNode> nodes) {
-        var priceInfo = new TibberResponse.PriceInfo(current, today, tomorrow);
-        var subscription = new TibberResponse.CurrentSubscription(priceInfo);
-        var consumption = new TibberResponse.Consumption(nodes);
-        var home = new TibberResponse.Home(subscription, consumption);
-        var viewer = new TibberResponse.Viewer(List.of(home));
-        var data = new TibberResponse.Data(viewer);
-        return new TibberResponse(data);
+    @AfterEach
+    void tearDown() {
+        server.close();
     }
 
     // -------------------------------------------------------------------------
-    // Task 1: Formatierungsmethoden
+    // Formatierung
     // -------------------------------------------------------------------------
 
-    /**
-     * KI-generiert: Prüft, dass Euro-Betrag korrekt in Cent umgerechnet und formatiert wird.
-     */
     @Test
     void formatPrice_convertsEuroToCent() {
         assertThat(service.formatPrice(0.25)).isEqualTo("25,0 Cent");
     }
 
-    /**
-     * KI-generiert: Prüft Randfall – 0 Euro ergibt 0,0 Cent.
-     */
     @Test
     void formatPrice_zeroEuro_returnsZeroCent() {
         assertThat(service.formatPrice(0.0)).isEqualTo("0,0 Cent");
     }
 
-    /**
-     * KI-generiert: 2026-06-15 liegt sicher in CEST (UTC+2), UTC 10:00 = Berlin 12:00.
-     * Testet Sommerzeit-Konvertierung, DST-unabhängig vom Ausführungsdatum.
-     */
     @Test
     void formatTime_convertsIsoStringToBerlinTimeSummer() {
         // KI-generiert: 2026-06-15 liegt sicher in CEST (UTC+2), UTC 10:00 = Berlin 12:00
-        String isoUtc = "2026-06-15T10:00:00Z";
-        assertThat(service.formatTime(isoUtc)).isEqualTo("12:00 Uhr");
+        assertThat(service.formatTime("2026-06-15T10:00:00Z")).isEqualTo("12:00 Uhr");
     }
 
-    /**
-     * KI-generiert: 2026-01-15 liegt sicher in CET (UTC+1), UTC 11:00 = Berlin 12:00.
-     * Testet Winterzeit-Konvertierung, DST-unabhängig vom Ausführungsdatum.
-     */
     @Test
     void formatTime_convertsIsoStringToBerlinTimeWinter() {
         // KI-generiert: 2026-01-15 liegt sicher in CET (UTC+1), UTC 11:00 = Berlin 12:00
-        String isoUtc = "2026-01-15T11:00:00Z";
-        assertThat(service.formatTime(isoUtc)).isEqualTo("12:00 Uhr");
+        assertThat(service.formatTime("2026-01-15T11:00:00Z")).isEqualTo("12:00 Uhr");
     }
 
-    /** KI-generiert: Prüft Label für Preisstufe VERY_CHEAP. */
     @Test
-    void formatLevel_veryCheap_returnsGermanLabel() {
+    void formatLevel_mapsAllKnownLevels() {
         assertThat(service.formatLevel("VERY_CHEAP")).isEqualTo("sehr günstig");
-    }
-
-    /** KI-generiert: Prüft Label für Preisstufe CHEAP. */
-    @Test
-    void formatLevel_cheap_returnsGermanLabel() {
         assertThat(service.formatLevel("CHEAP")).isEqualTo("günstig");
-    }
-
-    /** KI-generiert: Prüft Label für Preisstufe NORMAL. */
-    @Test
-    void formatLevel_normal_returnsGermanLabel() {
         assertThat(service.formatLevel("NORMAL")).isEqualTo("normal");
-    }
-
-    /** KI-generiert: Prüft Label für Preisstufe EXPENSIVE. */
-    @Test
-    void formatLevel_expensive_returnsGermanLabel() {
         assertThat(service.formatLevel("EXPENSIVE")).isEqualTo("teuer");
-    }
-
-    /** KI-generiert: Prüft Label für Preisstufe VERY_EXPENSIVE. */
-    @Test
-    void formatLevel_veryExpensive_returnsGermanLabel() {
         assertThat(service.formatLevel("VERY_EXPENSIVE")).isEqualTo("sehr teuer");
     }
 
-    /** KI-generiert: Prüft Fallback – unbekannte Level-Strings werden lowercase zurückgegeben. */
     @Test
     void formatLevel_unknown_returnsLowercase() {
         assertThat(service.formatLevel("UNKNOWN_LEVEL")).isEqualTo("unknown_level");
     }
 
+    @Test
+    void formatLevel_null_returnsUnbekannt() {
+        assertThat(service.formatLevel(null)).isEqualTo("unbekannt");
+    }
+
     // -------------------------------------------------------------------------
-    // Task 2: API-Methoden
+    // API-Methoden
     // -------------------------------------------------------------------------
 
-    /**
-     * KI-generiert: Prüft, dass getCurrentPrice den aktuellen Preis aus der API-Antwort zurückgibt.
-     */
     @Test
     void getCurrentPrice_returnsCurrentPriceFromResponse() {
-        Price current = new Price(0.30, "EUR", "EXPENSIVE", "2026-04-22T14:00:00+02:00");
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(current, List.of(), null, List.of()));
+        server.respondWith(200, homeResponse(price(0.30, "EXPENSIVE", PAST), "[]", "null", "[]"));
 
         Price result = service.getCurrentPrice("test-token");
 
@@ -182,130 +110,95 @@ class TibberServiceTest {
         assertThat(result.level()).isEqualTo("EXPENSIVE");
     }
 
-    /**
-     * KI-generiert: Prüft, dass getPriceList heute und morgen kombiniert zurückgibt.
-     */
+    @Test
+    void getCurrentPrice_sendsBearerTokenAndGraphQlQuery() {
+        server.respondWith(200, homeResponse(price(0.30, "EXPENSIVE", PAST), "[]", "null", "[]"));
+
+        service.getCurrentPrice("test-token");
+
+        assertThat(server.lastAuthorization()).isEqualTo("Bearer test-token");
+        assertThat(server.lastRequestBody()).contains("\"query\"").contains("priceInfo");
+    }
+
     @Test
     void getPriceList_combinesTodayAndTomorrow() {
-        Price today1 = new Price(0.20, "EUR", "CHEAP", "2026-04-22T10:00:00+02:00");
-        Price tomorrow1 = new Price(0.35, "EUR", "EXPENSIVE", "2026-04-23T10:00:00+02:00");
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, List.of(today1), List.of(tomorrow1), List.of()));
+        server.respondWith(200, homeResponse("null",
+                array(price(0.20, "CHEAP", "2026-06-15T10:00:00Z")),
+                array(price(0.35, "EXPENSIVE", "2026-06-16T10:00:00Z")),
+                "[]"));
 
         List<Price> result = service.getPriceList("test-token");
 
-        // KI-generiert: positionsunabhängige Assertion – Reihenfolge der Einträge ist nicht relevant
-        assertThat(result).hasSize(2);
         assertThat(result).extracting(Price::startsAt)
-                .anySatisfy(s -> assertThat(s).contains("2026-04-22"))
-                .anySatisfy(s -> assertThat(s).contains("2026-04-23"));
+                .containsExactlyInAnyOrder("2026-06-15T10:00:00Z", "2026-06-16T10:00:00Z");
     }
 
-    /**
-     * KI-generiert: Prüft Randfall – wenn tomorrow null ist, enthält die Liste nur heute-Preise.
-     */
     @Test
     void getPriceList_withNullTomorrow_returnsOnlyToday() {
-        Price today1 = new Price(0.20, "EUR", "CHEAP", "2026-04-22T10:00:00+02:00");
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, List.of(today1), null, List.of()));
+        server.respondWith(200, homeResponse("null", array(price(0.20, "CHEAP", PAST)), "null", "[]"));
 
-        List<Price> result = service.getPriceList("test-token");
-
-        assertThat(result).hasSize(1);
+        assertThat(service.getPriceList("test-token")).hasSize(1);
     }
 
-    /**
-     * KI-generiert: Prüft, dass getCurrentConsumption einen Verbrauchsknoten zurückgibt wenn Daten vorhanden sind.
-     */
     @Test
     void getCurrentConsumption_withNode_returnsOptionalOfNode() {
-        ConsumptionNode node = new ConsumptionNode(
-                "2026-04-22T13:00:00+02:00", "2026-04-22T14:00:00+02:00",
-                0.5, "kWh", 0.125);
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, List.of(), null, List.of(node)));
+        server.respondWith(200, homeResponse("null", "[]", "null",
+                "[{\"from\":\"2026-06-15T09:00:00Z\",\"to\":\"2026-06-15T10:00:00Z\",\"consumption\":0.5,\"cost\":0.125}]"));
 
         Optional<ConsumptionNode> result = service.getCurrentConsumption("test-token");
 
         assertThat(result).isPresent();
         assertThat(result.get().consumption()).isEqualTo(0.5);
+        assertThat(result.get().cost()).isEqualTo(0.125);
     }
 
-    /**
-     * KI-generiert: Prüft Randfall – wenn keine Verbrauchsknoten vorhanden, wird Optional.empty() zurückgegeben.
-     */
     @Test
     void getCurrentConsumption_withEmptyNodes_returnsEmpty() {
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, List.of(), null, List.of()));
+        server.respondWith(200, homeResponse("null", "[]", "null", "[]"));
 
-        Optional<ConsumptionNode> result = service.getCurrentConsumption("test-token");
+        assertThat(service.getCurrentConsumption("test-token")).isEmpty();
+    }
 
-        assertThat(result).isEmpty();
+    @Test
+    void getCurrentConsumption_withoutConsumptionBlock_returnsEmpty() {
+        server.respondWith(200, """
+                {"data":{"viewer":{"homes":[{"currentSubscription":null,"consumption":null}]}}}
+                """);
+
+        assertThat(service.getCurrentConsumption("test-token")).isEmpty();
     }
 
     // -------------------------------------------------------------------------
-    // Task 3: Filter-Methoden
+    // Filter-Methoden (Uhr fest auf NOW)
     // -------------------------------------------------------------------------
 
-    /**
-     * KI-generiert: Prüft, dass getNextLowestPrice vergangene Preise ignoriert
-     * und den günstigsten zukünftigen Preis zurückgibt.
-     */
     @Test
     void getNextLowestPrice_ignoresPastPrices_returnsLowestFuturePrice() {
-        String past = OffsetDateTime.now(ZoneOffset.UTC).minusHours(1).toString();
-        String future1 = OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).toString();
-        String future2 = OffsetDateTime.now(ZoneOffset.UTC).plusHours(2).toString();
-
-        List<Price> today = List.of(
-                new Price(0.10, "EUR", "VERY_CHEAP", past),
-                new Price(0.25, "EUR", "NORMAL", future1),
-                new Price(0.15, "EUR", "CHEAP", future2)
-        );
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, today, null, List.of()));
+        server.respondWith(200, homeResponse("null", array(
+                price(0.10, "VERY_CHEAP", PAST),
+                price(0.25, "NORMAL", FUTURE_1),
+                price(0.15, "CHEAP", FUTURE_2)), "null", "[]"));
 
         Optional<Price> result = service.getNextLowestPrice("test-token");
 
         assertThat(result).isPresent();
         assertThat(result.get().total()).isEqualTo(0.15);
-        assertThat(result.get().startsAt()).isEqualTo(future2);
+        assertThat(result.get().startsAt()).isEqualTo(FUTURE_2);
     }
 
-    /**
-     * KI-generiert: Prüft Randfall – wenn nur vergangene Preise vorhanden sind, wird Optional.empty() zurückgegeben.
-     */
     @Test
     void getNextLowestPrice_withOnlyPastPrices_returnsEmpty() {
-        String past = OffsetDateTime.now(ZoneOffset.UTC).minusHours(2).toString();
-        List<Price> today = List.of(new Price(0.10, "EUR", "CHEAP", past));
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, today, null, List.of()));
+        server.respondWith(200, homeResponse("null", array(price(0.10, "CHEAP", PAST)), "null", "[]"));
 
-        Optional<Price> result = service.getNextLowestPrice("test-token");
-
-        assertThat(result).isEmpty();
+        assertThat(service.getNextLowestPrice("test-token")).isEmpty();
     }
 
-    /**
-     * KI-generiert: Prüft, dass getNextHighestPrice vergangene Preise ignoriert
-     * und den teuersten zukünftigen Preis zurückgibt.
-     */
     @Test
     void getNextHighestPrice_ignoresPastPrices_returnsHighestFuturePrice() {
-        String past = OffsetDateTime.now(ZoneOffset.UTC).minusHours(1).toString();
-        String future1 = OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).toString();
-        String future2 = OffsetDateTime.now(ZoneOffset.UTC).plusHours(2).toString();
-
-        List<Price> today = List.of(
-                new Price(0.50, "EUR", "VERY_EXPENSIVE", past),
-                new Price(0.25, "EUR", "NORMAL", future1),
-                new Price(0.40, "EUR", "EXPENSIVE", future2)
-        );
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, today, null, List.of()));
+        server.respondWith(200, homeResponse("null", array(
+                price(0.50, "VERY_EXPENSIVE", PAST),
+                price(0.25, "NORMAL", FUTURE_1),
+                price(0.40, "EXPENSIVE", FUTURE_2)), "null", "[]"));
 
         Optional<Price> result = service.getNextHighestPrice("test-token");
 
@@ -313,18 +206,75 @@ class TibberServiceTest {
         assertThat(result.get().total()).isEqualTo(0.40);
     }
 
-    /**
-     * KI-generiert: Prüft Randfall – wenn nur vergangene Preise vorhanden sind, wird Optional.empty() zurückgegeben.
-     */
     @Test
     void getNextHighestPrice_withOnlyPastPrices_returnsEmpty() {
-        String past = OffsetDateTime.now(ZoneOffset.UTC).minusHours(2).toString();
-        List<Price> today = List.of(new Price(0.40, "EUR", "EXPENSIVE", past));
-        when(responseSpec.body(TibberResponse.class))
-                .thenReturn(buildResponse(null, today, null, List.of()));
+        server.respondWith(200, homeResponse("null", array(price(0.40, "EXPENSIVE", PAST)), "null", "[]"));
 
-        Optional<Price> result = service.getNextHighestPrice("test-token");
+        assertThat(service.getNextHighestPrice("test-token")).isEmpty();
+    }
 
-        assertThat(result).isEmpty();
+    // -------------------------------------------------------------------------
+    // Fehlerfälle (Review Focus 1 + 2)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void query_withHttpError_throwsTibberApiException() {
+        server.respondWith(500, "{}");
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("HTTP 500");
+    }
+
+    @Test
+    void query_withGraphQlErrors_throwsWithMessageButWithoutToken() {
+        server.respondWith(200, errorResponse("Context creation failed: invalid token"));
+
+        assertThatThrownBy(() -> service.getCurrentPrice("secret-token-123"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("invalid token")
+                .message().doesNotContain("secret-token-123");
+    }
+
+    @Test
+    void query_withoutHomes_throwsTibberApiException() {
+        server.respondWith(200, """
+                {"data":{"viewer":{"homes":[]}}}
+                """);
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("Kein Zuhause");
+    }
+
+    @Test
+    void query_withoutSubscription_throwsTibberApiException() {
+        server.respondWith(200, """
+                {"data":{"viewer":{"homes":[{"currentSubscription":null,"consumption":null}]}}}
+                """);
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("Kein aktiver Tibber-Vertrag");
+    }
+
+    @Test
+    void query_withInvalidJson_throwsTibberApiException() {
+        server.respondWith(200, "not-json");
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("nicht lesbar");
+    }
+
+    @Test
+    void query_whenServerTooSlow_throwsTibberApiException() {
+        // KI-generiert: Request-Timeout im Test = 500 ms, Server antwortet erst nach 2 s
+        server.respondWith(200, homeResponse(price(0.30, "EXPENSIVE", PAST), "[]", "null", "[]"));
+        server.delayResponsesBy(Duration.ofSeconds(2));
+
+        assertThatThrownBy(() -> service.getCurrentPrice("test-token"))
+                .isInstanceOf(TibberApiException.class)
+                .hasMessageContaining("nicht erreichbar");
     }
 }

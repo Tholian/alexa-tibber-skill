@@ -1,14 +1,18 @@
 
 package org.tholian.alexa.tibber.config;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.time.Clock;
+import java.time.Duration;
+
 import com.amazon.ask.CustomSkill;
 import com.amazon.ask.Skills;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.MediaType;
-import org.springframework.web.client.RestClient;
 
 import org.tholian.alexa.tibber.handler.CancelAndStopIntentHandler;
 import org.tholian.alexa.tibber.handler.CurrentConsumptionIntentHandler;
@@ -21,6 +25,7 @@ import org.tholian.alexa.tibber.handler.LoggingInterceptor;
 import org.tholian.alexa.tibber.handler.LowestPriceIntentHandler;
 import org.tholian.alexa.tibber.handler.MDCCleanupInterceptor;
 import org.tholian.alexa.tibber.handler.SessionEndedRequestHandler;
+import org.tholian.alexa.tibber.service.TibberService;
 
 @Configuration
 public class SkillConfig {
@@ -57,11 +62,10 @@ public class SkillConfig {
 				.build( );
 	}
 
+	// KI-generiert: Übergangslösung bis Task 3 – die Datei wird dort gelöscht
 	@Bean
-	public RestClient restClient( @Value( "${tibber.api-url}" ) String apiUrl ) {
-		return RestClient.builder( )
-				.baseUrl( apiUrl )
-				.defaultHeader( "Content-Type", MediaType.APPLICATION_JSON_VALUE )
-				.build( );
+	public TibberService tibberService( @Value( "${tibber.api-url}" ) String apiUrl ) {
+		return new TibberService( HttpClient.newHttpClient( ), new ObjectMapper( ), URI.create( apiUrl ),
+				Duration.ofSeconds( 4 ), Clock.systemUTC( ) );
 	}
 }

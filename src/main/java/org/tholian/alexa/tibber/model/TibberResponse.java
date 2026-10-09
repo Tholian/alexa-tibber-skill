@@ -4,37 +4,47 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import org.jspecify.annotations.Nullable;
+
+/**
+ * KI-generiert: Antwortstruktur der Tibber GraphQL API.
+ * Bei Fehlern (z. B. ungültiger Token) ist {@code data} {@code null} und {@code errors} befüllt.
+ */
 @JsonIgnoreProperties( ignoreUnknown = true )
-public record TibberResponse(Data data) {
+public record TibberResponse( @Nullable Data data, @Nullable List<GraphQLError> errors ) {
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
-	public record Data(Viewer viewer) {
+	public record GraphQLError( @Nullable String message ) {
 	}
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
-	public record Viewer(List<Home> homes) {
+	public record Data( Viewer viewer ) {
+	}
+
+	@JsonIgnoreProperties( ignoreUnknown = true )
+	public record Viewer( List<Home> homes ) {
 	}
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
 	public record Home(
-			CurrentSubscription currentSubscription,
-			Consumption consumption
+			@Nullable CurrentSubscription currentSubscription,
+			@Nullable Consumption consumption
 	) {
 	}
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
-	public record CurrentSubscription(PriceInfo priceInfo) {
+	public record CurrentSubscription( PriceInfo priceInfo ) {
 	}
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
 	public record PriceInfo(
-			Price current,
+			@Nullable Price current,
 			List<Price> today,
-			List<Price> tomorrow
+			@Nullable List<Price> tomorrow
 	) {
 	}
 
 	@JsonIgnoreProperties( ignoreUnknown = true )
-	public record Consumption(List<ConsumptionNode> nodes) {
+	public record Consumption( @Nullable List<ConsumptionNode> nodes ) {
 	}
 }
