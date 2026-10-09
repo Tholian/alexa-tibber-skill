@@ -9,6 +9,19 @@ Parameters:
     Type: String
     Description: Skill-ID aus der Alexa Developer Console (amzn1.ask.skill.<uuid>)
     AllowedPattern: "^amzn1\\.ask\\.skill\\.[0-9a-f-]+$"
+  LinkingClientId:
+    Type: String
+    Description: Client-ID für Account Linking – frei wählbar, identisch in der Alexa Developer Console eintragen (8–128 Zeichen A–Z a–z 0–9 . _ -)
+    AllowedPattern: "^[A-Za-z0-9._-]{8,128}$"
+  LinkingRedirectUris:
+    Type: String
+    Description: Kommagetrennte "Alexa Redirect URLs" aus der Alexa Developer Console (Build > Tools > Account Linking)
+    AllowedPattern: "^https://(layla\\.amazon\\.com|pitangui\\.amazon\\.com|alexa\\.amazon\\.co\\.jp)/api/skill/link/[A-Za-z0-9]+(,https://(layla\\.amazon\\.com|pitangui\\.amazon\\.com|alexa\\.amazon\\.co\\.jp)/api/skill/link/[A-Za-z0-9]+)*$"
+  PrivacyPolicyUrl:
+    Type: String
+    Default: ""
+    Description: Optional – https-URL deiner Datenschutzerklärung; wird auf der Verknüpfungsseite verlinkt
+    AllowedPattern: "^(https://[^\\s]+)?$"
 
 Resources:
   TibberSkillFunction:
@@ -48,7 +61,64 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${AWS::StackName}
       RetentionInDays: 14
 
+  # KI-generiert: Account-Linking-Brücke – Formularseite, auf der Nutzer ihren persönlichen Tibber-Token hinterlegen.
+  # SICHERHEIT: Speichert nichts; leitet nur an die exakt konfigurierten Amazon-Redirect-URLs zurück.
+  AccountLinkingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: build/distributions/alexa-tibber-skill.zip
+      Handler: org.tholian.alexa.tibber.linking.AccountLinkingHandler::handleRequest
+      Runtime: java25
+      Architectures:
+        - arm64
+      MemorySize: 1024
+      Timeout: 10
+      SnapStart:
+        ApplyOn: PublishedVersions
+      AutoPublishAlias: live
+      LoggingConfig:
+        LogGroup: !Ref AccountLinkingLogGroup
+      Environment:
+        Variables:
+          LINKING_CLIENT_ID: !Ref LinkingClientId
+          LINKING_REDIRECT_URIS: !Ref LinkingRedirectUris
+          PRIVACY_POLICY_URL: !Ref PrivacyPolicyUrl
+          TIBBER_API_URL: https://api.tibber.com/v1-beta/gql
+      Events:
+        LinkGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccountLinkingApi
+            Path: /link
+            Method: GET
+        LinkPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccountLinkingApi
+            Path: /link
+            Method: POST
+
+  # KI-generiert: Öffentlicher HTTPS-Endpunkt (Amazon-Zertifikat) der Verknüpfungsseite.
+  # SICHERHEIT: Drosselung gegen Flooding, Kosten und Missbrauch als Token-Prüf-Orakel.
+  # Bewusst KEINE Access-Logs: die Anfrage-URL enthält den state-Parameter von Alexa.
+  AccountLinkingApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+
+  # Datensparsamkeit: kurze Aufbewahrung; die Linking-Funktion loggt nur Ergebnisse, nie Tokens
+  AccountLinkingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-account-linking
+      RetentionInDays: 14
+
 Outputs:
   SkillEndpointArn:
     Description: In der Alexa Developer Console als Endpoint (Default Region) eintragen
     Value: !Ref TibberSkillFunctionAliaslive
+  AccountLinkingAuthorizationUri:
+    Description: In der Alexa Developer Console unter Account Linking als "Your Web Authorization URI" eintragen
+    Value: !Sub https://${AccountLinkingApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/link
