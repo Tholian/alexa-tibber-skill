@@ -55,6 +55,8 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.mockito:mockito-junit-jupiter:5.20.0")
+    // KI-generiert: Logback-API im Test, um zu prüfen, dass der Tibber-Token nie geloggt wird
+    testImplementation("ch.qos.logback:logback-classic:1.5.18")
     mockitoAgent("org.mockito:mockito-core:5.20.0") {
         isTransitive = false
     }

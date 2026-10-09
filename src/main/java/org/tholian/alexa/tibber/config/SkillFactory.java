@@ -1,5 +1,6 @@
 package org.tholian.alexa.tibber.config;
 
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
@@ -39,16 +40,20 @@ public final class SkillFactory {
 	private SkillFactory( ) {
 	}
 
+	/** KI-generiert: TibberService mit den Skill-Timeouts – gemeinsam für Skill- und Account-Linking-Funktion. */
+	public static TibberService tibberService( URI tibberApiUrl ) {
+		HttpClient httpClient = HttpClient.newBuilder( )
+				.connectTimeout( TIBBER_CONNECT_TIMEOUT )
+				.build( );
+		return new TibberService( httpClient, new ObjectMapper( ), tibberApiUrl, TIBBER_REQUEST_TIMEOUT, Clock.systemUTC( ) );
+	}
+
 	// KI-generiert: Die SDK-Builder-Methoden (addRequestHandlers/-Interceptors) haben generische Varargs-Parameter
 	// (z. B. GenericRequestHandler<HandlerInput, Optional<Response>>...); der Compiler muss dafür ein generisches
 	// Array anlegen. Das ist hier unbedenklich (nur lesend verwendet) und lässt sich auf Aufruferseite nicht vermeiden.
 	@SuppressWarnings( "unchecked" )
 	public static CustomSkill create( SkillSettings settings ) {
-		HttpClient httpClient = HttpClient.newBuilder( )
-				.connectTimeout( TIBBER_CONNECT_TIMEOUT )
-				.build( );
-		TibberService tibberService = new TibberService( httpClient, new ObjectMapper( ), settings.tibberApiUrl( ),
-				TIBBER_REQUEST_TIMEOUT, Clock.systemUTC( ) );
+		TibberService tibberService = tibberService( settings.tibberApiUrl( ) );
 
 		return new CustomSkillBuilder( )
 				// SICHERHEIT: Requests mit fremder Skill-ID werden vom ASK SDK abgewiesen
