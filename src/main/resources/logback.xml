@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  KI-generiert: Logging-Konfiguration für AWS Lambda.
+  Ausgabe als JSON (LogstashEncoder) auf stdout → CloudWatch Logs.
+  MDC-Felder (intentName, requestId, locale, userId) erscheinen als Top-Level-Felder
+  und sind in CloudWatch Logs Insights direkt filterbar.
+  SICHERHEIT: Der accessToken wird nirgends in den MDC geschrieben und damit nie geloggt.
+-->
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.util.List;
 
 import com.amazon.ask.CustomSkill;
-import com.amazon.ask.Skills;
+import com.amazon.ask.builder.CustomSkillBuilder;
 import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -46,7 +46,7 @@ public final class SkillFactory {
 		TibberService tibberService = new TibberService( httpClient, new ObjectMapper( ), settings.tibberApiUrl( ),
 				TIBBER_REQUEST_TIMEOUT, Clock.systemUTC( ) );
 
-		return Skills.custom( )
+		return new CustomSkillBuilder( )
 				// SICHERHEIT: Requests mit fremder Skill-ID werden vom ASK SDK abgewiesen
 				.withSkillId( settings.skillId( ) )
 				.addRequestHandlers( requestHandlers( tibberService ).toArray( RequestHandler[]::new ) )

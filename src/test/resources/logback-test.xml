@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  KI-generiert: Lesbares Plaintext-Logging für Tests (hat auf dem Test-Classpath Vorrang vor logback.xml).
+  %X{key} gibt den MDC-Wert aus, leerer String wenn nicht gesetzt.
+-->
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%X{intentName}][%X{requestId}][%X{userId}][%X{locale}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
