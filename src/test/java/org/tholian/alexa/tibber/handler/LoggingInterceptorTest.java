@@ -73,6 +73,22 @@ class LoggingInterceptorTest {
         assertThat(MDC.get("userId")).isNull();
     }
 
+    @Test
+    // KI-generiert: Warme Lambda-Instanz – nach einer Handler-Exception läuft der MDCCleanupInterceptor nicht.
+    // Der nächste Request darf keine Werte des vorherigen Aufrufers übernehmen.
+    void clearsStaleMdcEntriesBeforePopulating() {
+        MDC.put("userId", "amzn1.ask.account.previous-caller");
+        MDC.put("intentName", "StaleIntent");
+        var request = LaunchRequest.builder().withRequestId("launch-002").build();
+        var envelope = RequestEnvelope.builder().withRequest(request).build();
+        var input = HandlerInput.builder().withRequestEnvelope(envelope).build();
+
+        interceptor.process(input);
+
+        assertThat(MDC.get("userId")).isNull();
+        assertThat(MDC.get("intentName")).isEqualTo("LaunchRequest");
+    }
+
     // KI-generiert: Baut einen HandlerInput mit IntentRequest inkl. aller MDC-relevanten Felder
     private static HandlerInput intentInput(String intentName, String locale, String requestId, String userId) {
         var user = User.builder().withUserId(userId).build();

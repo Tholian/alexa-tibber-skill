@@ -8,9 +8,7 @@ import com.amazon.ask.model.Response;
 import com.amazon.ask.model.SessionEndedRequest;
 import com.amazon.ask.request.Predicates;
 
-import org.springframework.stereotype.Component;
 
-@Component
 public class SessionEndedRequestHandler implements RequestHandler {
 
 	@Override

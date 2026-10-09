@@ -29,6 +29,13 @@ class CancelAndStopIntentHandlerTest {
     }
 
     @Test
+    void canHandle_matchesAmazonNavigateHomeIntent() {
+        // KI-generiert: NavigateHomeIntent steht im Interaction Model und hatte bisher keinen Handler
+        var input = HandlerTestHelper.intentInput("AMAZON.NavigateHomeIntent", "token");
+        assertThat(handler.canHandle(input)).isTrue();
+    }
+
+    @Test
     void canHandle_doesNotMatchOtherIntent() {
         var input = HandlerTestHelper.intentInput("AMAZON.HelpIntent", "token");
         assertThat(handler.canHandle(input)).isFalse();

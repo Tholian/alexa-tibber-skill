@@ -7,15 +7,15 @@ import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.amazon.ask.model.Response;
 import com.amazon.ask.request.Predicates;
 
-import org.springframework.stereotype.Component;
 
-@Component
 public class CancelAndStopIntentHandler implements RequestHandler {
 
 	@Override
 	public boolean canHandle( HandlerInput input ) {
+		// KI-generiert: NavigateHomeIntent (Interaction Model) beendet die Session wie Stop/Cancel
 		return input.matches( Predicates.intentName( "AMAZON.CancelIntent" )
-				.or( Predicates.intentName( "AMAZON.StopIntent" ) ) );
+				.or( Predicates.intentName( "AMAZON.StopIntent" ) )
+				.or( Predicates.intentName( "AMAZON.NavigateHomeIntent" ) ) );
 	}
 
 	@Override

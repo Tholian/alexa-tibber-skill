@@ -6,7 +6,6 @@ import com.amazon.ask.dispatcher.request.interceptor.RequestInterceptor;
 import com.amazon.ask.model.IntentRequest;
 import com.amazon.ask.model.User;
 import org.slf4j.MDC;
-import org.springframework.stereotype.Component;
 
 /**
  * KI-generiert: Schreibt Alexa-Request-Kontext in den MDC vor jeder Handler-Ausführung.
@@ -16,11 +15,15 @@ import org.springframework.stereotype.Component;
  * SICHERHEIT: accessToken wird bewusst NICHT geloggt, da er sensible Zugangsdaten enthält.
  * SICHERHEIT: userId dient nur dem Tracing; keine personenbezogenen Inhalte werden geloggt.
  */
-@Component
 public class LoggingInterceptor implements RequestInterceptor {
 
     @Override
     public void process(HandlerInput input) {
+        // KI-generiert: Reste eines vorherigen Aufrufs entfernen. In einer warmen Lambda-Instanz läuft der
+        // nächste Request auf demselben Thread; schlägt ein Handler fehl, wird der MDCCleanupInterceptor
+        // (ResponseInterceptor) nicht ausgeführt.
+        MDC.clear();
+
         var envelope = input.getRequestEnvelope();
         var request = envelope.getRequest();
 

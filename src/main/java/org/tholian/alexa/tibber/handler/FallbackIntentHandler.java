@@ -7,9 +7,7 @@ import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.amazon.ask.model.Response;
 import com.amazon.ask.request.Predicates;
 
-import org.springframework.stereotype.Component;
 
-@Component
 public class FallbackIntentHandler implements RequestHandler {
 
 	@Override

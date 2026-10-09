@@ -8,9 +8,7 @@ import com.amazon.ask.model.LaunchRequest;
 import com.amazon.ask.model.Response;
 import com.amazon.ask.request.Predicates;
 
-import org.springframework.stereotype.Component;
 
-@Component
 public class LaunchRequestHandler implements RequestHandler {
 
 	@Override
