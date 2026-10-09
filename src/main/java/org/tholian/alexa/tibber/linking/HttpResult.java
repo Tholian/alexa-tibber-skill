@@ -16,7 +16,10 @@ record HttpResult( int statusCode, Map<String, String> headers, String body ) {
 			"Content-Security-Policy", LinkingPage.CSP,
 			"X-Frame-Options", "DENY",
 			"X-Content-Type-Options", "nosniff",
-			"Referrer-Policy", "no-referrer",
+			// SICHERHEIT: "same-origin" statt "no-referrer": Bei no-referrer senden Browser beim Formular-POST "Origin: null",
+			// wodurch die Origin-Prüfung jeden echten Submit ablehnen würde. Same-origin-POSTs tragen so den echten Origin;
+			// Cross-Origin-Navigationen (Weiterleitung zu Amazon, Datenschutz-Link mit rel="noreferrer") senden weiterhin keinen Referrer.
+			"Referrer-Policy", "same-origin",
 			"Cache-Control", "no-store",
 			"Pragma", "no-cache",
 			"Strict-Transport-Security", "max-age=31536000" );

@@ -92,7 +92,7 @@ class AccountLinkingHandlerTest {
         assertThat(headers.path("Content-Security-Policy").asText()).isEqualTo(LinkingPage.CSP);
         assertThat(headers.path("X-Frame-Options").asText()).isEqualTo("DENY");
         assertThat(headers.path("Cache-Control").asText()).isEqualTo("no-store");
-        assertThat(headers.path("Referrer-Policy").asText()).isEqualTo("no-referrer");
+        assertThat(headers.path("Referrer-Policy").asText()).isEqualTo("same-origin");
         assertThat(headers.path("X-Content-Type-Options").asText()).isEqualTo("nosniff");
         assertThat(headers.path("Strict-Transport-Security").asText()).startsWith("max-age=");
         String body = response.path("body").asText();
@@ -233,6 +233,14 @@ class AccountLinkingHandlerTest {
     @Test
     void post_withForeignOrigin_isRejected() throws IOException {
         JsonNode response = invoke(post("/link", form(formFields(TOKEN)), HOST, "https://evil.example"));
+
+        assertThat(response.path("statusCode").asInt()).isEqualTo(403);
+        assertThat(tibber.requestCount()).isZero();
+    }
+
+    @Test
+    void post_withNullOrigin_isRejected() throws IOException {
+        JsonNode response = invoke(post("/link", form(formFields(TOKEN)), HOST, "null"));
 
         assertThat(response.path("statusCode").asInt()).isEqualTo(403);
         assertThat(tibber.requestCount()).isZero();

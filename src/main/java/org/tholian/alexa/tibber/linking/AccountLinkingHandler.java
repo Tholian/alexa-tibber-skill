@@ -84,7 +84,8 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 	}
 
 	private HttpResult submit( JsonNode event ) {
-		// SICHERHEIT: Das Formular darf nur von dieser Seite selbst abgeschickt werden (Cross-Site-POST abwehren)
+		// SICHERHEIT: Das Formular darf nur von dieser Seite selbst abgeschickt werden (Cross-Site-POST abwehren).
+		// Auch der Wert "null" (opake/sandboxed Kontexte) stimmt nie mit der erwarteten Origin überein und wird abgewiesen.
 		String origin = header( event, "origin" );
 		if ( origin != null && !origin.equals( "https://" + header( event, "host" ) ) ) {
 			throw new InvalidAuthorizationRequestException( 403, "Anfrage nicht erlaubt." );
