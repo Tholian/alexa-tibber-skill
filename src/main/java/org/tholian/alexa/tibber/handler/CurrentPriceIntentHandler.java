@@ -11,6 +11,7 @@ import com.amazon.ask.request.Predicates;
 
 import lombok.extern.slf4j.Slf4j;
 import org.tholian.alexa.tibber.model.Price;
+import org.tholian.alexa.tibber.service.TibberAuthenticationException;
 import org.tholian.alexa.tibber.service.TibberService;
 
 @Slf4j
@@ -29,12 +30,9 @@ public class CurrentPriceIntentHandler implements RequestHandler {
 
 	@Override
 	public Optional<Response> handle( HandlerInput input ) {
-		String token = input.getRequestEnvelope( ).getContext( ).getSystem( ).getUser( ).getAccessToken( );
+		String token = AccountLinkingResponses.accessToken( input );
 		if ( token == null ) {
-			return input.getResponseBuilder( )
-					.withSpeech( "Bitte verknüpfe zunächst deinen Tibber Account in der Alexa App." )
-					.withLinkAccountCard( )
-					.build( );
+			return AccountLinkingResponses.linkAccount( input );
 		}
 		try {
 			Price price = tibberService.getCurrentPrice( token );
@@ -43,6 +41,10 @@ public class CurrentPriceIntentHandler implements RequestHandler {
 			return input.getResponseBuilder( )
 					.withSpeech( speech )
 					.build( );
+		} catch ( TibberAuthenticationException e ) {
+			// KI-generiert: Token bei Tibber widerrufen/ungültig → Neuverknüpfung statt allgemeiner Fehlermeldung
+			log.warn( "Tibber lehnt den Access-Token ab – Neuverknüpfung angefordert" );
+			return AccountLinkingResponses.relinkAccount( input );
 		} catch ( Exception e ) {
 			log.error( "Fehler beim Abrufen des Strompreises", e );
 			return input.getResponseBuilder( )

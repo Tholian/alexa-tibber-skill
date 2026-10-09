@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.tholian.alexa.tibber.model.Price;
+import org.tholian.alexa.tibber.service.TibberAuthenticationException;
 import org.tholian.alexa.tibber.service.TibberService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,5 +76,27 @@ class CurrentPriceIntentHandlerTest {
 
         assertThat(response).isPresent();
         assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("Problem");
+    }
+
+    @Test
+    void handle_whenTibberRejectsToken_asksToRelinkWithCard() {
+        var input = HandlerTestHelper.intentInput("GetCurrentPriceIntent", "test-token");
+        when(tibberService.getCurrentPrice("test-token")).thenThrow(new TibberAuthenticationException("abgelehnt"));
+
+        var response = handler.handle(input);
+
+        assertThat(response).isPresent();
+        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("nicht mehr gültig");
+        assertThat(response.get().getCard()).isInstanceOf(LinkAccountCard.class);
+    }
+
+    @Test
+    void handle_withBlankToken_asksToLinkWithoutCallingTibber() {
+        var input = HandlerTestHelper.intentInput("GetCurrentPriceIntent", "  ");
+
+        var response = handler.handle(input);
+
+        assertThat(HandlerTestHelper.extractSpeech(response.orElseThrow())).contains("verknüpfe");
+        org.mockito.Mockito.verifyNoInteractions(tibberService);
     }
 }

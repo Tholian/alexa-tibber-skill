@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.tholian.alexa.tibber.model.ConsumptionNode;
+import org.tholian.alexa.tibber.service.TibberAuthenticationException;
 import org.tholian.alexa.tibber.service.TibberService;
 
 import java.util.Optional;
@@ -107,5 +108,17 @@ class CurrentConsumptionIntentHandlerTest {
 
         assertThat(response).isPresent();
         assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("Problem");
+    }
+
+    @Test
+    void handle_whenTibberRejectsToken_asksToRelinkWithCard() {
+        var input = HandlerTestHelper.intentInput("GetCurrentConsumptionIntent", "test-token");
+        when(tibberService.getCurrentConsumption("test-token")).thenThrow(new TibberAuthenticationException("abgelehnt"));
+
+        var response = handler.handle(input);
+
+        assertThat(response).isPresent();
+        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("nicht mehr gültig");
+        assertThat(response.get().getCard()).isInstanceOf(LinkAccountCard.class);
     }
 }
