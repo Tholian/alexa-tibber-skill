@@ -35,6 +35,7 @@ Zentrale Liste für offene Aufgaben, technische Schulden und Feature Requests di
 
 ## Technische Aufgaben
 
+- [ ] **Dependabot-Sicherheitsüberwachung aktivieren** – Im GitHub-Repository unter *Settings → Code security* „Dependabot alerts“ und „Dependabot security updates“ einschalten. `.github/dependabot.yml` steuert nur die regulären Versions-Updates; die Sicherheits-PRs laufen über diese Einstellungen. Wirkt erst, wenn die Konfiguration auf `main` liegt. _2026-10-09_
 - [ ] **Logging-Interceptoren im Projektstil** – `LoggingInterceptor` und `MDCCleanupInterceptor` auf Tabs und `foo( x )` umstellen. _Abschluss-Review Lambda-Migration, 2026-10-09_
 - [ ] **KI-Kennzeichnung der Handler-Konstruktoren** – `KI-generiert:`-Kommentare an den Konstruktoren der Tibber-Handler ergänzen. _2026-10-09_
 - [ ] **Null-Guard im `UnhandledRequestHandler`** – `getIntent()` kann bei fehlerhaften Requests `null` sein. _2026-10-09_

@@ -28,6 +28,7 @@
 
 ```
 .github/workflows/ci.yml                            # GitHub Actions: build + Tests, Lambda-Zip als Artefakt (kein Deployment)
+.github/dependabot.yml                              # Dependabot: wöchentliche Update-PRs für Gradle (inkl. Wrapper) und GitHub Actions
 template.yaml                                       # AWS SAM (Lambda, Alias "live", Alexa-Trigger, Log-Retention)
 skill-package/interactionModels/custom/de-DE.json   # Interaction Model (deutsche Utterances)
 

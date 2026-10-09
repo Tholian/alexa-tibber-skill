@@ -1,0 +1,62 @@
+# KI-generiert: Dependabot-Konfiguration – prüft wöchentlich auf neue Versionen und öffnet dafür Pull Requests.
+# Sicherheitsupdates (Dependabot Security Updates) laufen unabhängig vom Zeitplan, sobald sie in den
+# Repository-Einstellungen aktiviert sind (Settings → Code security).
+version: 2
+
+updates:
+  # KI-generiert: Gradle – Abhängigkeiten aus build.gradle.kts und der Gradle-Wrapper
+  # (gradle/wrapper/gradle-wrapper.properties). init.gradle.kts wird nur manuell per --init-script
+  # verwendet und von Dependabot nicht ausgewertet.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    # KI-generiert: SICHERHEIT: Neue Versionen erst nach einer Karenzzeit vorschlagen – schützt vor frisch
+    # veröffentlichten, kompromittierten Releases (Supply-Chain-Angriffe). Sicherheitsupdates sind davon ausgenommen.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    # KI-generiert: Conventional Commits, z. B. „build(deps): bump …“
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    groups:
+      # KI-generiert: Module, die zwingend dieselbe Version brauchen, gemeinsam aktualisieren
+      ask-sdk:
+        patterns:
+          - "com.amazon.alexa:ask-sdk-*"
+      mockito:
+        patterns:
+          - "org.mockito:*"
+      logback:
+        patterns:
+          - "ch.qos.logback:*"
+      # KI-generiert: Übrige Minor-/Patch-Updates in einem PR bündeln, um PR-Rauschen zu reduzieren;
+      # Major-Updates kommen weiterhin einzeln und werden bewusst geprüft
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # KI-generiert: GitHub Actions aus .github/workflows/
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    # KI-generiert: Conventional Commits, z. B. „ci(deps): bump actions/checkout …“
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
