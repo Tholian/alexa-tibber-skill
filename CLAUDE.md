@@ -34,11 +34,14 @@ src/main/java/org/tholian/alexa/tibber/
 ├── TibberSkillStreamHandler.java     # Lambda-Einstieg (::handleRequest)
 ├── config/
 │   ├── SkillFactory.java             # manuelle Verdrahtung aller Komponenten
-│   └── SkillSettings.java            # ALEXA_SKILL_ID (Pflicht), TIBBER_API_URL (optional; nur https, http nur Loopback – sonst Init-Fehler)
+│   ├── SkillSettings.java            # ALEXA_SKILL_ID (Pflicht), TIBBER_API_URL (optional; nur https, http nur Loopback – sonst Init-Fehler)
+│   └── TibberApiUrls.java            # gemeinsame Validierung der Tibber-URL
 ├── handler/                          # 9 Request-Handler, Catch-all UnhandledRequestHandler, 2 Interceptoren, GenericExceptionHandler
+├── linking/                          # Account-Linking-Brücke (Implicit Grant): AccountLinkingHandler, AuthorizationRequest, LinkingSettings, LinkingPage, FormData, HttpResult
 ├── model/                            # Records für die Tibber GraphQL API
 └── service/
     ├── TibberApiException.java
+    ├── TibberAuthenticationException.java
     └── TibberService.java            # Tibber-Aufrufe + Formatierung
 
 src/main/resources/logback.xml        # JSON (LogstashEncoder)
@@ -60,6 +63,8 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 - **Fail-fast:** ohne `ALEXA_SKILL_ID` schlägt der Lambda-Init fehl.
 - **Timeouts:** Tibber Connect 2 s, Request 4 s als Gesamt-Timeout inkl. Body (`sendAsync` + `future.get`; Alexa bricht nach 8 s ab). Fehler → `TibberApiException` (Message ohne Token) → Handler sprechen eine Fehlermeldung.
 - **Tibber Token via Alexa Account Linking** – aus `context.System.user.accessToken`.
+- **Account Linking:** Implicit Grant über die eigene Lambda `AccountLinkingHandler` hinter API Gateway HTTP API (`/link`; je Route GET/POST 5 req/s, Burst 10). Tibber bietet für die Preis-API kein OAuth, deshalb fügen Nutzer ihren persönlichen Token ein. Die Seite prüft ihn per Minimalabfrage (`verifyToken`) und leitet nur an exakt konfigurierte Amazon-Redirect-URLs weiter. Kein Speicher, kein Logging des Tokens, kein JavaScript, strenge CSP.
+- **Abgelehnter Token** (HTTP 401/403 oder GraphQL `UNAUTHENTICATED`) → `TibberAuthenticationException` → Handler antworten über `AccountLinkingResponses.relinkAccount` mit LinkAccount-Card.
 - **Preise in Cent**, **Timezone Europe/Berlin**, Preisliste = `today` + `tomorrow`; `getNextLowestPrice`/`getNextHighestPrice` filtern auf Zukunft über die injizierte `Clock`.
 - **`UnhandledRequestHandler`** ist ein Catch-all und wird in `SkillFactory.create` als LETZTER Handler registriert: ASK SDK 2.86.0 liefert bei fehlendem passendem Handler `null` (keine Exception) – Exception-Handler sehen unbekannte Intents nie. `GenericExceptionHandler` behandelt ausschließlich geworfene Exceptions und antwortet gesprochen statt mit Lambda-Fehler.
 - **`SkillFactory.requestHandlers(...)`** enthält bewusst nur die 9 spezifischen Handler (ohne Catch-all), damit `InteractionModelCoverageTest` aussagekräftig bleibt: Er stellt sicher, dass jeder Intent aus dem Interaction Model einen Handler hat.
@@ -91,6 +96,7 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 
 - Invocation Name: **"tibber strompreis"**
 - Endpoint: Lambda-Alias `live` (Stack-Output `SkillEndpointArn`), Region `eu-west-1`
+- Account Linking: Implicit Grant, Authorization URI = Stack-Output `AccountLinkingAuthorizationUri`, Parameter `LinkingClientId`, `LinkingRedirectUris`, `PrivacyPolicyUrl`.
 - Demo-Token: im Tibber Developer Portal; nur als Umgebungsvariable `TIBBER_DEMO_TOKEN` verwenden, nie einchecken. Der Demo-Account liefert Preise in **SEK**.
 
 ## Build & Test

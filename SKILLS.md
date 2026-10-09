@@ -144,3 +144,21 @@ Für `formatTime`-Tests: Datum muss sicher in CEST (Sommer) oder CET (Winter) li
 "2026-06-15T10:00:00Z"  // sicher CEST → 12:00 Uhr Berlin
 "2026-01-15T11:00:00Z"  // sicher CET  → 12:00 Uhr Berlin
 ```
+
+---
+
+## Account-Linking-Lambda testen
+
+`AccountLinkingHandler` hat einen package-privaten Konstruktor mit Umgebungs-Map. Events im API-Gateway-Format (Payload 2.0) liefert `ApiGatewayEvents`:
+
+```java
+handler = new AccountLinkingHandler(Map.of(
+        LinkingSettings.ENV_CLIENT_ID, "tibber-skill-client",
+        LinkingSettings.ENV_REDIRECT_URIS, "https://layla.amazon.com/api/skill/link/M2ABCDEFGHIJ",
+        SkillSettings.ENV_TIBBER_API_URL, tibber.uri().toString()));
+
+JsonNode response = invoke(post("/link", form(fields), HOST, "https://" + HOST));
+assertThat(response.path("headers").path("Location").asText()).startsWith(REDIRECT + "#state=");
+```
+
+Dass der Token nie geloggt wird, prüft `post_neverLogsOrEchoesToken` mit einem Logback-`ListAppender` am Root-Logger.

@@ -163,6 +163,8 @@ Die Ausgabe zeigt Konto-ID und Rolle. Die Anmeldung läuft nach einigen Stunden 
 2. Name z. B. „Tibber Strompreis“, Primary locale **German (DE)**, Typ **Custom**, Hosting **Provision your own**, Vorlage *Start from scratch*.
 3. *Build* → *Interaction Model* → *JSON Editor*: den Inhalt von `skill-package/interactionModels/custom/de-DE.json` einfügen → *Save* → *Build skill*.
 4. Die **Skill-ID** kopieren (in der Skill-Liste *Copy Skill ID*; Format `amzn1.ask.skill.<uuid>`).
+5. *Build* → *Tools* → *Account Linking* öffnen und die angezeigten **Alexa Redirect URLs** kopieren (je Region eine, Form `https://layla.amazon.com/api/skill/link/<ID>`). Noch nicht speichern – die Authorization URI entsteht erst beim Deployment.
+6. Eine **Client-ID** festlegen (frei wählbar, 8–128 Zeichen aus Buchstaben, Ziffern, `.`, `_`, `-`, z. B. `tibber-strompreis-skill`).
 
 ### Teil B – Erstes Deployment
 
@@ -178,20 +180,36 @@ Antworten im geführten Modus:
 | Stack Name | `alexa-tibber-skill` |
 | AWS Region | `eu-west-1` |
 | Parameter AlexaSkillId | Skill-ID aus A7 |
+| Parameter LinkingClientId | Client-ID aus A7, Schritt 6 |
+| Parameter LinkingRedirectUris | alle Alexa Redirect URLs aus A7, Schritt 5, kommagetrennt ohne Leerzeichen |
+| Parameter PrivacyPolicyUrl | https-URL deiner Datenschutzerklärung (für einen öffentlichen Skill Pflicht, siehe „Veröffentlichung“); leer lassen nur für private Tests |
 | Confirm changes before deploy | `y` – SAM zeigt vor jeder Änderung an, was passiert |
 | Allow SAM CLI IAM role creation | `y` – die Lambda-Funktion braucht eine Ausführungsrolle |
 | Disable rollback | `n` – bei Fehlern wird automatisch zurückgerollt |
 | Save arguments to configuration file | `y` – speichert die Antworten in `samconfig.toml` (lokal, nicht eingecheckt) |
 | SAM configuration file / environment | Enter (Standard) |
 
-Am Ende zeigt SAM unter **Outputs** den Wert `SkillEndpointArn`, z. B. `arn:aws:lambda:eu-west-1:123456789012:function:alexa-tibber-skill-TibberSkillFunction-AbC123:live`.
+Am Ende zeigt SAM unter **Outputs** zwei Werte:
+- `SkillEndpointArn`, z. B. `arn:aws:lambda:eu-west-1:123456789012:function:alexa-tibber-skill-TibberSkillFunction-AbC123:live`
+- `AccountLinkingAuthorizationUri`, z. B. `https://abc123def4.execute-api.eu-west-1.amazonaws.com/link`
 
 **Endpoint im Skill eintragen:**
 1. Alexa Developer Console → dein Skill → *Build* → *Endpoint*.
 2. **AWS Lambda ARN** wählen und den ARN unter *Default Region* einfügen. Er muss auf `:live` enden.
 3. *Save Endpoints*.
 
-**Account Linking einrichten:** *Build* → *Tools* → *Account Linking* mit den OAuth-Daten deines Tibber-Zugangs aus dem [Tibber Developer Portal](https://developer.tibber.com/) konfigurieren. Danach in der Alexa-App den Skill aktivieren und das Tibber-Konto verknüpfen.
+**Account Linking einrichten** (Nutzer hinterlegen damit ihren eigenen Tibber-Token):
+1. Alexa Developer Console → dein Skill → *Build* → *Tools* → *Account Linking*.
+2. *Do you allow users to create an account or link to an existing account with you?* aktivieren.
+3. *Allow users to enable skill without account linking* **deaktivieren** – ohne Token kann der Skill nichts abfragen.
+4. *Auth Grant Type*: **Implicit Grant**.
+5. *Your Web Authorization URI*: der Output `AccountLinkingAuthorizationUri`.
+6. *Your Client ID*: die Client-ID aus A7, Schritt 6 (muss exakt mit `LinkingClientId` übereinstimmen).
+7. *Scope*: wird nicht ausgewertet; falls die Konsole einen Wert verlangt, `prices` eintragen.
+8. *Domain List*: leer lassen (die Seite lädt keine externen Ressourcen).
+9. *Save*.
+
+So läuft die Verknüpfung für Nutzer ab: In der Alexa-App den Skill aktivieren → *Konto verknüpfen* → die Verknüpfungsseite öffnet sich → persönlichen Token von [developer.tibber.com](https://developer.tibber.com/) (*Access Token*) einfügen → *Verknüpfen*. Die Seite prüft den Token bei Tibber und gibt ihn an Alexa weiter. Gespeichert wird er nur bei Amazon, nicht von diesem Dienst. Widerruft ein Nutzer den Token später bei Tibber, fordert der Skill beim nächsten Aufruf zur Neuverknüpfung auf.
 
 **Testen:** Reiter *Test* → *Skill testing is enabled in: Development* → „frag tibber strompreis was kostet strom gerade“.
 
@@ -203,6 +221,8 @@ aws sso login --profile alexa-tibber    # nur falls die Anmeldung abgelaufen ist
 sam deploy --profile alexa-tibber       # nutzt die gespeicherten Antworten aus samconfig.toml
 ```
 
+Stacks, die vor der Einführung des Account Linkings deployt wurden, brauchen einmalig ein `sam deploy --guided --profile alexa-tibber`, um die neuen Parameter `LinkingClientId`, `LinkingRedirectUris` und `PrivacyPolicyUrl` einzugeben; ein einfaches `sam deploy` mit der alten `samconfig.toml` schlägt fehl, weil die Pflichtparameter keinen Standardwert haben.
+
 Jedes Deployment veröffentlicht eine neue Lambda-Version; SnapStart erstellt dafür einen Snapshot, und der Alias `live` zeigt automatisch darauf. In der Alexa Developer Console muss nichts geändert werden. Ausnahme: Änderungen an `skill-package/interactionModels/custom/de-DE.json` müssen zusätzlich im JSON-Editor der Alexa Developer Console eingefügt und dort neu gebaut werden (`sam deploy` aktualisiert das Interaktionsmodell nicht).
 
 ### Logs und Fehlersuche
@@ -211,6 +231,8 @@ Logs live mitlesen:
 ```powershell
 sam logs --cw-log-group /aws/lambda/alexa-tibber-skill --tail --profile alexa-tibber
 ```
+Logs der Verknüpfungsseite: `sam logs --cw-log-group /aws/lambda/alexa-tibber-skill-account-linking --tail --profile alexa-tibber`
+
 Der Name der Log-Gruppe folgt dem Stack-Namen (`/aws/lambda/<Stack-Name>`); wurde der Stack unter einem anderen Namen angelegt, den Namen entsprechend anpassen.
 Alternativ in der AWS-Konsole unter *CloudWatch* → *Logs Insights*, z. B. nur Fehler:
 ```
@@ -226,6 +248,28 @@ fields @timestamp, level, intentName, message
 | Log-Eintrag „Umgebungsvariable ALEXA_SKILL_ID fehlt“ | Parameter `AlexaSkillId` beim Deployment leer → erneut `sam deploy --guided` |
 | `sam deploy` meldet, die Runtime `java25` sei unbekannt | Die Region bietet Java 25 noch nicht an → in `template.yaml` `Runtime: java21` und in `build.gradle.kts` die Toolchain auf 21 setzen |
 | Alexa antwortet, das Konto sei nicht verknüpft | Account Linking in der Alexa-App durchführen |
+| Verknüpfungsseite zeigt „Unzulässige Weiterleitungsadresse“ | `LinkingRedirectUris` enthält nicht exakt die Alexa Redirect URLs aus der Developer Console → mit `sam deploy --guided --profile alexa-tibber` korrigieren |
+| Verknüpfungsseite zeigt „Unbekannter Client“ | Client-ID in der Developer Console weicht von `LinkingClientId` ab |
+| Verknüpfungsseite zeigt „Tibber hat diesen Token nicht akzeptiert“ | Token unvollständig kopiert oder bei Tibber widerrufen → neuen Token auf developer.tibber.com erzeugen |
+| Alexa sagt „Deine Verknüpfung mit Tibber ist nicht mehr gültig“ | Token wurde bei Tibber widerrufen → in der Alexa-App neu verknüpfen |
+
+### Veröffentlichung als öffentlicher Skill
+
+Vor dem Einreichen zur Zertifizierung:
+
+- [ ] **Datenschutzerklärung** unter einer https-URL veröffentlichen und sowohl als Parameter `PrivacyPolicyUrl` als auch unter *Distribution* → *Privacy Policy URL* eintragen. Sie muss mindestens beschreiben:
+  - welche Daten verarbeitet werden: persönlicher Tibber-Token, Preis- und Verbrauchsdaten von Tibber, pseudonymisierte Alexa User-ID in Logs;
+  - dass Amazon den Token speichert und mit jeder Anfrage an die Lambda-Funktion sendet und dass dieser Dienst ihn nicht speichert;
+  - Speicherort und -dauer: AWS-Region `eu-west-1`, Logs 14 Tage;
+  - wie Nutzer die Verknüpfung aufheben (Alexa-App) und den Token widerrufen (developer.tibber.com);
+  - Betreiber und Kontakt.
+
+  Den Text juristisch prüfen lassen; das Repository enthält bewusst keinen Rechtstext.
+- [ ] Verknüpfung in der Alexa-App mit einem echten Konto testen: verknüpfen, Preis abfragen, Token bei Tibber widerrufen, erneut fragen (Aufforderung zur Neuverknüpfung), neu verknüpfen.
+- [ ] Prüfen, dass die Verknüpfungsseite auf dem Smartphone gut lesbar ist und Fehlermeldungen anzeigt (z. B. bei einem falsch kopierten Token).
+- [ ] In der Skill-Beschreibung erwähnen, dass ein Tibber-Konto und ein persönlicher Access Token nötig sind.
+
+Hinweis: Ist ein Skill mit Account Linking einmal veröffentlicht, lässt sich Account Linking nicht mehr deaktivieren.
 
 ### Wieder entfernen
 
@@ -247,11 +291,15 @@ Alexa ──(Lambda-Invoke, nur diese Skill-ID)──▶ TibberSkillStreamHandle
                                                  ├── UnhandledRequestHandler  (Catch-all für unbekannte Intents)
                                                  ├── GenericExceptionHandler  (Fallback-Antwort bei Exceptions)
                                                  └── MDCCleanupInterceptor    (MDC leeren)
+
+Alexa-App ──(HTTPS, gedrosselt)──▶ API Gateway /link ──▶ AccountLinkingHandler
+                                                 ├── GET:  Formular (OAuth-Parameter geprüft)
+                                                 └── POST: Token-Format + Prüfung bei Tibber ──▶ 302 an Amazon-Redirect-URL
 ```
 
 - Kein Web-Server und kein DI-Framework – der Skill wird beim Lambda-Init einmal gebaut und per SnapStart gesichert.
 - Strukturiertes JSON-Logging nach AWS CloudWatch (Aufbewahrung 14 Tage).
-- Tibber Account Linking – der Bearer Token kommt ausschließlich aus dem Alexa-Kontext.
+- Account Linking per OAuth 2.0 Implicit Grant: Nutzer hinterlegen ihren persönlichen Tibber-Token auf der Verknüpfungsseite; Amazon speichert ihn und schickt ihn mit jeder Anfrage mit (`context.System.user.accessToken`).
 
 ---
 
@@ -261,6 +309,12 @@ Alexa ──(Lambda-Invoke, nur diese Skill-ID)──▶ TibberSkillStreamHandle
 - Der Tibber Access Token wird **nie** geloggt und nur zur Laufzeit im Speicher gehalten.
 - Logs enthalten als einzigen Personenbezug die pseudonymisierte Alexa User-ID (nach DSGVO ein personenbezogenes Datum); sie wird 14 Tage aufbewahrt und danach gelöscht.
 - Tibber-Aufrufe haben harte Timeouts (2 s Verbindungsaufbau, 4 s Antwort), damit Alexa nie in ihr 8-Sekunden-Limit läuft.
+- Die Verknüpfungsseite leitet ausschließlich an die exakt konfigurierten Amazon-Redirect-URLs weiter; die Liste wird beim Start auf https, Amazon-Host und Alexa-Link-Pfad geprüft.
+- Die Verknüpfungsseite speichert keine Tokens, loggt sie nicht und gibt sie nie im HTML aus. Sie läuft ohne JavaScript und mit strenger Content-Security-Policy, Schutz gegen Einbettung (Clickjacking), `no-store` und `Referrer-Policy: same-origin` (kein Referrer an fremde Seiten; nötig, damit Browser beim Absenden die echte Herkunft mitsenden).
+- Alle reflektierten Parameter werden escaped. Steuerzeichen, überlange Werte, doppelte Felder und Formulare fremder Herkunft werden abgelehnt.
+- Der Endpunkt ist je Route (GET und POST `/link`) auf 5 Anfragen/s, Burst 10, gedrosselt; API-Gateway-Access-Logs sind bewusst deaktiviert.
+- Restrisiko: Die Drosselung gilt global, nicht je Client. Ein einzelner Client kann die Verknüpfungsseite für alle vorübergehend unerreichbar machen (Verfügbarkeit, nicht Kosten oder Daten). HTTP APIs unterstützen kein AWS WAF; für dieses Projekt akzeptiert.
+- Widerruft ein Nutzer seinen Token bei Tibber, erkennt der Skill das und fordert zur Neuverknüpfung auf.
 
 ---
 
