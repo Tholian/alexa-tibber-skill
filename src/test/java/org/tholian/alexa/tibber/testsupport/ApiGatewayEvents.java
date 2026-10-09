@@ -24,6 +24,8 @@ public final class ApiGatewayEvents {
         ObjectNode event = base("GET", path, host);
         ObjectNode params = event.putObject("queryStringParameters");
         query.forEach(params::put);
+        // KI-generiert: API Gateway liefert zusätzlich den unveränderten Query-String; die Lambda wertet nur diesen aus
+        event.put("rawQueryString", form(query));
         return event.toString();
     }
 
@@ -42,6 +44,13 @@ public final class ApiGatewayEvents {
         ObjectNode event = (ObjectNode) readTree(post(path, formBody, host, origin));
         event.put("body", Base64.getEncoder().encodeToString(formBody.getBytes(StandardCharsets.UTF_8)));
         event.put("isBase64Encoded", true);
+        return event.toString();
+    }
+
+    /** KI-generiert: GET mit explizitem rohem Query-String (z. B. doppelte Parameter oder Prozent-Kodierung). */
+    public static String getRaw(String path, String rawQueryString, String host) {
+        ObjectNode event = base("GET", path, host);
+        event.put("rawQueryString", rawQueryString);
         return event.toString();
     }
 

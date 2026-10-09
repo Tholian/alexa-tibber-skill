@@ -357,6 +357,24 @@ class TibberServiceTest {
     }
 
     @Test
+    void verifyToken_withNullViewer_throwsTibberApiException() {
+        server.respondWith(200, "{\"data\":{\"viewer\":null}}");
+
+        assertThatThrownBy(() -> service.verifyToken("test-token"))
+                .isExactlyInstanceOf(TibberApiException.class)
+                .hasMessageContaining("unvollständig");
+    }
+
+    @Test
+    void verifyToken_withNullHomes_throwsTibberApiException() {
+        server.respondWith(200, "{\"data\":{\"viewer\":{\"homes\":null}}}");
+
+        assertThatThrownBy(() -> service.verifyToken("test-token"))
+                .isExactlyInstanceOf(TibberApiException.class)
+                .hasMessageContaining("unvollständig");
+    }
+
+    @Test
     void verifyToken_withRejectedToken_throwsAuthenticationException() {
         server.respondWith(200, unauthenticatedResponse());
 

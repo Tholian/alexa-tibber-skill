@@ -173,7 +173,12 @@ public class TibberService {
 	 * @throws TibberApiException            bei sonstigen Fehlern oder wenn kein Zuhause existiert
 	 */
 	public void verifyToken( String token ) {
-		if ( query( token, VERIFY_QUERY ).viewer( ).homes( ).isEmpty( ) ) {
+		TibberResponse.Data data = query( token, VERIFY_QUERY );
+		// KI-generiert: Unvollständige Antworten (z. B. viewer = null) als Tibber-Fehler melden statt als NullPointerException
+		if ( data.viewer( ) == null || data.viewer( ).homes( ) == null ) {
+			throw new TibberApiException( "Tibber-Antwort unvollständig" );
+		}
+		if ( data.viewer( ).homes( ).isEmpty( ) ) {
 			throw new TibberApiException( "Kein Zuhause im Tibber-Konto hinterlegt" );
 		}
 	}

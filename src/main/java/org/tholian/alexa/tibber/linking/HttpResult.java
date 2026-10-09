@@ -8,7 +8,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * KI-generiert: HTTP-Antwort im Format von API Gateway HTTP API (Payload 2.0).
- * SICHERHEIT: Jede Antwort trägt dieselben Sicherheits-Header (CSP, kein Framing, kein Caching, kein Referrer, HSTS).
+ * SICHERHEIT: Jede Antwort trägt dieselben Sicherheits-Header (CSP, kein Framing, kein Caching, Referrer nur same-origin, HSTS).
+ * Der Location-Header kann den Token im Fragment enthalten und wird deshalb in {@link #toString()} geschwärzt.
  */
 record HttpResult( int statusCode, Map<String, String> headers, String body ) {
 
@@ -39,6 +40,14 @@ record HttpResult( int statusCode, Map<String, String> headers, String body ) {
 		Map<String, String> headers = new LinkedHashMap<>( SECURITY_HEADERS );
 		headers.put( "Location", location );
 		return new HttpResult( 302, headers, "" );
+	}
+
+	/** KI-generiert: SICHERHEIT: Location (Token im Fragment) wird nie ausgegeben. */
+	@Override
+	public String toString( ) {
+		Map<String, String> redacted = new LinkedHashMap<>( headers );
+		redacted.computeIfPresent( "Location", ( name, value ) -> "<redacted>" );
+		return "HttpResult[statusCode=" + statusCode + ", headers=" + redacted + ", bodyLength=" + body.length( ) + "]";
 	}
 
 	ObjectNode toJson( ObjectMapper mapper ) {

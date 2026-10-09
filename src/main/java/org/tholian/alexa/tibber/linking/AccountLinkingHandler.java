@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -54,8 +53,17 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 
 	/** KI-generiert: Testbarer Konstruktor mit expliziter Umgebung. */
 	AccountLinkingHandler( Map<String, String> environment ) {
-		this.settings = LinkingSettings.fromEnvironment( environment );
-		this.tibberService = SkillFactory.tibberService( settings.tibberApiUrl( ) );
+		this( LinkingSettings.fromEnvironment( environment ) );
+	}
+
+	private AccountLinkingHandler( LinkingSettings settings ) {
+		this( settings, SkillFactory.tibberService( settings.tibberApiUrl( ) ) );
+	}
+
+	/** KI-generiert: Testnaht, um unerwartete Fehler des Tibber-Clients deterministisch auszulösen. */
+	AccountLinkingHandler( LinkingSettings settings, TibberService tibberService ) {
+		this.settings = settings;
+		this.tibberService = tibberService;
 	}
 
 	@Override
@@ -80,6 +88,11 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 			// KI-generiert: Message enthält bewusst keine Parameterwerte
 			log.warn( "Ungültige Account-Linking-Anfrage: {}", e.getMessage( ) );
 			return HttpResult.error( e.status( ), e.getMessage( ) );
+		} catch ( RuntimeException e ) {
+			// SICHERHEIT: Nur der Klassenname wird geloggt – weder Message noch Objekt noch Stacktrace, da diese
+			// Parameterwerte oder den Token enthalten könnten. Der Nutzer erhält trotzdem eine Seite mit Sicherheits-Headern.
+			log.error( "Unerwarteter Fehler im Account Linking: {}", e.getClass( ).getSimpleName( ) );
+			return HttpResult.error( 500, "Es ist ein interner Fehler aufgetreten. Bitte versuche es später erneut." );
 		}
 	}
 
@@ -101,7 +114,8 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 		try {
 			tibberService.verifyToken( token );
 		} catch ( TibberAuthenticationException e ) {
-			log.info( "Account Linking: Tibber lehnt den Token ab" );
+			// KI-generiert: Die Message enthält nur Status bzw. "UNAUTHENTICATED", nie den Token
+			log.info( "Account Linking: Tibber lehnt den Token ab: {}", e.getMessage( ) );
 			return formWithError( 400, request, "Tibber hat diesen Token nicht akzeptiert. Bitte prüfe ihn und versuche es erneut." );
 		} catch ( TibberApiException e ) {
 			// KI-generiert: TibberApiException-Messages enthalten nie den Token
@@ -119,11 +133,10 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 	}
 
 	private static Map<String, String> queryParameters( JsonNode event ) {
-		// KI-generiert: API Gateway liefert dekodierte Werte; doppelte Parameter werden kommagetrennt zusammengefasst
-		// und fallen dadurch bei der exakten Prüfung durch
-		Map<String, String> params = new HashMap<>( );
-		event.path( "queryStringParameters" ).properties( ).forEach( entry -> params.put( entry.getKey( ), entry.getValue( ).asText( ) ) );
-		return params;
+		// KI-generiert: Bewusst nicht "queryStringParameters" (API Gateway fasst Duplikate kommagetrennt zusammen und
+		// verschleiert so Mehrdeutigkeit), sondern der Roh-String mit strenger Dekodierung; doppelte Parameter ergeben 400.
+		// OAuth 2.0 (RFC 6749, Anhang B) verwendet application/x-www-form-urlencoded, daher bedeutet '+' ein Leerzeichen.
+		return FormData.parse( event.path( "rawQueryString" ).asText( "" ) );
 	}
 
 	private static String body( JsonNode event ) {

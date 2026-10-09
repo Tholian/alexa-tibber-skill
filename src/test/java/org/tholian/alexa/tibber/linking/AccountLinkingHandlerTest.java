@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.tholian.alexa.tibber.config.SkillSettings;
+import org.tholian.alexa.tibber.service.TibberService;
 import org.tholian.alexa.tibber.testsupport.FakeTibberServer;
 
 import java.io.ByteArrayInputStream;
@@ -20,8 +21,12 @@ import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.tholian.alexa.tibber.testsupport.ApiGatewayEvents.form;
 import static org.tholian.alexa.tibber.testsupport.ApiGatewayEvents.get;
+import static org.tholian.alexa.tibber.testsupport.ApiGatewayEvents.getRaw;
 import static org.tholian.alexa.tibber.testsupport.ApiGatewayEvents.post;
 import static org.tholian.alexa.tibber.testsupport.ApiGatewayEvents.postBase64;
 import static org.tholian.alexa.tibber.testsupport.ApiGatewayEvents.request;
@@ -99,8 +104,32 @@ class AccountLinkingHandlerTest {
         assertThat(body).contains("name=\"state\" value=\"abc-123\"")
                 .contains("name=\"tibber_token\"")
                 .contains("type=\"password\"")
+                .contains("vollen Zugriff")
                 .contains("href=\"https://example.org/datenschutz\"")
                 .doesNotContain("<script");
+    }
+
+    @Test
+    void get_withDuplicateQueryParameters_isRejected() throws IOException {
+        // KI-generiert: queryStringParameters wären gültig (API Gateway fasst Duplikate zusammen); entscheidend ist der Raw-Query-String
+        var event = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(get("/link", query(), HOST));
+        event.put("rawQueryString", form(query()) + "&state=other");
+
+        JsonNode response = invoke(event.toString());
+
+        assertThat(response.path("statusCode").asInt()).isEqualTo(400);
+        assertThat(response.path("headers").has("Location")).isFalse();
+    }
+
+    @Test
+    void get_withPercentEncodedRedirectUriInRawQuery_isAccepted() throws IOException {
+        String raw = "state=abc-123&client_id=" + CLIENT_ID + "&response_type=token&redirect_uri="
+                     + java.net.URLEncoder.encode(REDIRECT, UTF_8);
+
+        JsonNode response = invoke(getRaw("/link", raw, HOST));
+
+        assertThat(response.path("statusCode").asInt()).isEqualTo(200);
+        assertThat(response.path("body").asText()).contains("name=\"redirect_uri\" value=\"" + REDIRECT + "\"");
     }
 
     @Test
@@ -219,6 +248,52 @@ class AccountLinkingHandlerTest {
         assertThat(response.path("statusCode").asInt()).isEqualTo(502);
         assertThat(response.path("headers").has("Location")).isFalse();
         assertThat(response.path("body").asText()).contains("später erneut").doesNotContain(TOKEN);
+    }
+
+    @Test
+    void post_whenTibberReturnsIncompleteViewer_showsBadGatewayPageWithSecurityHeaders() throws IOException {
+        tibber.respondWith(200, "{\"data\":{\"viewer\":null}}");
+
+        JsonNode response = invoke(post("/link", form(formFields(TOKEN)), HOST, ORIGIN));
+
+        assertThat(response.path("statusCode").asInt()).isEqualTo(502);
+        assertThat(response.path("headers").has("Location")).isFalse();
+        assertThat(response.path("headers").path("Content-Security-Policy").asText()).isEqualTo(LinkingPage.CSP);
+        assertThat(response.path("body").asText()).contains("später erneut").doesNotContain(TOKEN);
+    }
+
+    @Test
+    void post_whenUnexpectedRuntimeExceptionOccurs_returnsGenericErrorPageAndLogsOnlyClassName() throws IOException {
+        TibberService failing = mock(TibberService.class);
+        doThrow(new IllegalStateException("geheim " + TOKEN)).when(failing).verifyToken(anyString());
+        var failingHandler = new AccountLinkingHandler(
+                LinkingSettings.fromEnvironment(Map.of(
+                        LinkingSettings.ENV_CLIENT_ID, CLIENT_ID,
+                        LinkingSettings.ENV_REDIRECT_URIS, REDIRECT)),
+                failing);
+        var root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        root.addAppender(appender);
+        JsonNode response;
+        try {
+            var out = new ByteArrayOutputStream();
+            failingHandler.handleRequest(new ByteArrayInputStream(
+                    post("/link", form(formFields(TOKEN)), HOST, ORIGIN).getBytes(UTF_8)), out, null);
+            response = mapper.readTree(out.toByteArray());
+        } finally {
+            root.detachAppender(appender);
+        }
+
+        assertThat(response.path("statusCode").asInt()).isEqualTo(500);
+        assertThat(response.path("headers").has("Location")).isFalse();
+        assertThat(response.path("headers").path("Content-Security-Policy").asText()).isEqualTo(LinkingPage.CSP);
+        assertThat(response.path("body").asText()).contains("interner Fehler").doesNotContain(TOKEN);
+        assertThat(appender.list).anySatisfy(event -> assertThat(event.getFormattedMessage()).contains("IllegalStateException"));
+        assertThat(appender.list).allSatisfy(event -> {
+            assertThat(event.getFormattedMessage()).doesNotContain(TOKEN);
+            assertThat(event.getThrowableProxy()).isNull();
+        });
     }
 
     @Test

@@ -40,6 +40,10 @@ final class LinkingPage {
 				.append( "<p>Der Skill liest mit deinem persönlichen Tibber-Zugangstoken deine Strompreise und deinen Verbrauch. " )
 				.append( "Den Token erzeugst du auf developer.tibber.com unter „Access Token“. " )
 				.append( "Öffne die Seite dafür am besten in einem separaten Browser und kopiere den Token hierher.</p>" );
+		// SICHERHEIT/Transparenz: Hinweis auf den Vollzugriff direkt an der Einwilligungsstelle (statischer Text)
+		html.append( "<p><strong>Hinweis:</strong> Der Tibber-Token lässt sich nicht auf Lesezugriff beschränken und gewährt "
+				+ "vollen Zugriff auf die Tibber-API deines Kontos. Alexa schickt ihn bei jeder Frage an diesen Skill, "
+				+ "der ihn ausschließlich lesend nutzt.</p>" );
 		if ( errorMessage != null ) {
 			html.append( "<p class=\"error\" role=\"alert\">" ).append( escape( errorMessage ) ).append( "</p>" );
 		}

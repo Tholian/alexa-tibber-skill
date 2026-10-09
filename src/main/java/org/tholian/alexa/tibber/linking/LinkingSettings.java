@@ -32,7 +32,8 @@ public record LinkingSettings(
 
 	// KI-generiert: Alexa leitet nur über diese Amazon-Hosts zurück (je Region einer)
 	static final Set<String> AMAZON_REDIRECT_HOSTS = Set.of( "layla.amazon.com", "pitangui.amazon.com", "alexa.amazon.co.jp" );
-	private static final String REDIRECT_PATH_PREFIX = "/api/skill/link/";
+	// KI-generiert: exakt ein alphanumerischer Vendor-Id-Segment-Pfad (wie im Template), keine Punkt-Segmente
+	private static final Pattern REDIRECT_PATH_FORMAT = Pattern.compile( "/api/skill/link/[A-Za-z0-9]+" );
 	private static final Pattern CLIENT_ID_FORMAT = Pattern.compile( "[A-Za-z0-9._-]{8,128}" );
 
 	/**
@@ -87,7 +88,7 @@ public record LinkingSettings(
 		                && uri.getHost( ) != null && AMAZON_REDIRECT_HOSTS.contains( uri.getHost( ) )
 		                && uri.getPort( ) == -1
 		                && uri.getRawUserInfo( ) == null
-		                && uri.getRawPath( ) != null && uri.getRawPath( ).startsWith( REDIRECT_PATH_PREFIX )
+		                && uri.getRawPath( ) != null && REDIRECT_PATH_FORMAT.matcher( uri.getRawPath( ) ).matches( )
 		                && uri.getRawQuery( ) == null
 		                && uri.getRawFragment( ) == null;
 		if ( !valid ) {

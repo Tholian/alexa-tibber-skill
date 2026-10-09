@@ -57,7 +57,8 @@ public class CurrentConsumptionIntentHandler implements RequestHandler {
 					.build( );
 		} catch ( TibberAuthenticationException e ) {
 			// KI-generiert: Token bei Tibber widerrufen/ungültig → Neuverknüpfung statt allgemeiner Fehlermeldung
-			log.warn( "Tibber lehnt den Access-Token ab – Neuverknüpfung angefordert" );
+			// KI-generiert: Die Message enthält nur Status bzw. "UNAUTHENTICATED", nie den Token
+			log.warn( "Tibber lehnt den Access-Token ab – Neuverknüpfung angefordert: {}", e.getMessage( ) );
 			return AccountLinkingResponses.relinkAccount( input );
 		} catch ( Exception e ) {
 			log.error( "Fehler beim Abrufen des Verbrauchs", e );

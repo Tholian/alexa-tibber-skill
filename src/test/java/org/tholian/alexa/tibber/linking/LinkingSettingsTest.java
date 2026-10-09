@@ -73,6 +73,8 @@ class LinkingSettingsTest {
                 "https://evil@layla.amazon.com/api/skill/link/M2ABCDEFGHIJ",
                 "https://layla.amazon.com:8443/api/skill/link/M2ABCDEFGHIJ",
                 "https://layla.amazon.com/other/path",
+                "https://layla.amazon.com/api/skill/link/../../x",
+                "https://layla.amazon.com/api/skill/link/",
                 LAYLA + "?x=1",
                 LAYLA + "#frag",
                 "not a uri"}) {
