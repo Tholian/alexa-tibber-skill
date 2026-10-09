@@ -259,6 +259,10 @@ Vor dem Einreichen zur Zertifizierung:
 
 - [ ] **Datenschutzerklärung** unter einer https-URL veröffentlichen und sowohl als Parameter `PrivacyPolicyUrl` als auch unter *Distribution* → *Privacy Policy URL* eintragen. Sie muss mindestens beschreiben:
   - welche Daten verarbeitet werden: persönlicher Tibber-Token, Preis- und Verbrauchsdaten von Tibber, pseudonymisierte Alexa User-ID in Logs;
+  - dass der Tibber-Token nicht auf Lesezugriff beschränkbar ist und vollen Zugriff auf die Tibber-API des Kontos gewährt (der Skill nutzt ihn ausschließlich lesend);
+  - dass die Lambda-Funktion des Betreibers den Token mit jeder Anfrage erhält und Nutzer dem Betreiber daher vertrauen müssen;
+  - Tibber als Empfänger der Daten bei der Token-Prüfung und bei jeder Abfrage;
+  - AWS als Auftragsverarbeiter (Hosting in `eu-west-1`, Auftragsverarbeitungsvertrag);
   - dass Amazon den Token speichert und mit jeder Anfrage an die Lambda-Funktion sendet und dass dieser Dienst ihn nicht speichert;
   - Speicherort und -dauer: AWS-Region `eu-west-1`, Logs 14 Tage;
   - wie Nutzer die Verknüpfung aufheben (Alexa-App) und den Token widerrufen (developer.tibber.com);
@@ -313,7 +317,7 @@ Alexa-App ──(HTTPS, gedrosselt)──▶ API Gateway /link ──▶ Account
 - Die Verknüpfungsseite speichert keine Tokens, loggt sie nicht und gibt sie nie im HTML aus. Sie läuft ohne JavaScript und mit strenger Content-Security-Policy, Schutz gegen Einbettung (Clickjacking), `no-store` und `Referrer-Policy: same-origin` (kein Referrer an fremde Seiten; nötig, damit Browser beim Absenden die echte Herkunft mitsenden).
 - Alle reflektierten Parameter werden escaped. Steuerzeichen, überlange Werte, doppelte Felder und Formulare fremder Herkunft werden abgelehnt.
 - Der Endpunkt ist je Route (GET und POST `/link`) auf 5 Anfragen/s, Burst 10, gedrosselt; API-Gateway-Access-Logs sind bewusst deaktiviert.
-- Restrisiko: Die Drosselung gilt global, nicht je Client. Ein einzelner Client kann die Verknüpfungsseite für alle vorübergehend unerreichbar machen (Verfügbarkeit, nicht Kosten oder Daten). HTTP APIs unterstützen kein AWS WAF; für dieses Projekt akzeptiert.
+- Restrisiko: Die Drosselung gilt global, nicht je Client. Ein einzelner Client kann die Verknüpfungsseite für alle vorübergehend unerreichbar machen (Verfügbarkeit, keine Daten). Ein Überflutungsangriff kann zudem begrenzte Kosten verursachen (API Gateway und Lambda); der Budget-Alarm aus Schritt A5 meldet sie. HTTP APIs unterstützen kein AWS WAF; für dieses Projekt akzeptiert.
 - Widerruft ein Nutzer seinen Token bei Tibber, erkennt der Skill das und fordert zur Neuverknüpfung auf.
 
 ---
