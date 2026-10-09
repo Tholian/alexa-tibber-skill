@@ -57,8 +57,7 @@ Für größere Änderungen bitte vorher ein Issue öffnen, um die Umsetzung abzu
 
 - **Java 25** (z. B. via [SDKMAN](https://sdkman.io/): `sdk install java 25-open`)
 - **Gradle** (wird über den Wrapper `./gradlew` automatisch heruntergeladen)
-- Ein **Tibber API Token** (Demo-Token zum Testen: `3A77EECF61BD445F47241A5A36202185C35AF3AF58609E19B53F3A8872AD7BE1-1`)
-- Optional: Docker für Integrationstests
+- Optional: **AWS SAM CLI** – nur für Maintainer, die deployen
 
 ### Setup
 
@@ -67,31 +66,13 @@ Für größere Änderungen bitte vorher ein Issue öffnen, um die Umsetzung abzu
 git clone https://github.com/DEIN-USERNAME/alexa-tibber-skill.git
 cd alexa-tibber-skill
 
-# 2. Umgebungsvariable setzen (Demo-Token reicht für Entwicklung)
-export TIBBER_API_TOKEN=5K4MVS-OjfWhK_4yrjOlFe1F6kJXPVf7eQYggo8ebAE
-
-# 3. Abhängigkeiten laden und bauen
+# 2. Bauen und alle Tests ausführen (erzeugt auch das Lambda-Paket)
 ./gradlew build
-
-# 4. Tests ausführen
-./gradlew test
-
-# 5. Anwendung starten
-./gradlew bootRun
 ```
 
-### Lokales Testen mit ngrok
+### Lokal testen
 
-Alexa benötigt einen HTTPS-Endpunkt. Für lokale Entwicklung eignet sich [ngrok](https://ngrok.com/):
-
-```bash
-# In einem separaten Terminal:
-ngrok http 8080
-
-# Die generierte HTTPS-URL in der Alexa Developer Console eintragen
-# Außerdem für lokale Entwicklung setzen:
-export ALEXA_DISABLE_SIGNATURE_CHECK=true
-```
+Die Tests decken den kompletten Weg ab: `TibberSkillStreamHandlerTest` schickt echte Alexa-Request-JSONs durch den Lambda-Einstieg, die Tibber API wird durch einen lokalen Test-Server (`FakeTibberServer`) ersetzt. Für Sprachtests mit echter Alexa wird der Skill deployt (siehe README) und im Alexa-Simulator getestet.
 
 ---
 
@@ -178,9 +159,10 @@ git commit -m "chore: ASK SDK auf 2.89.0 aktualisieren"
 
 - **Java 25** – moderne Features nutzen: Records, Text Blocks, Pattern Matching, Switch Expressions
 - **Lombok** – ausschließlich `@Slf4j` für Logger. Keine anderen Lombok-Annotationen (`@Data`, `@Builder` etc.) — expliziter Code bleibt verständlicher. `lombok.config` erzwingt das durch Compile-Fehler.
-- **Spring-Konventionen** – Constructor Injection statt Field Injection (`@Autowired`)
+- **Kein Framework für Dependency Injection** – Abhängigkeiten werden per Konstruktor übergeben und in `config/SkillFactory` verdrahtet. Neue Handler dort in `requestHandlers(...)` eintragen; `InteractionModelCoverageTest` prüft, dass jeder Intent einen Handler hat.
+- **Null-Safety** – JSpecify: `@NullMarked` je Package (`package-info.java`), nullable Typen explizit mit `@Nullable`.
 - **Logging** – `@Slf4j` (Lombok) verwenden. Kein `System.out.println`, keine manuellen `LoggerFactory.getLogger()`-Aufrufe. `accessToken` darf **niemals** geloggt werden.
-- **Lokales Logging** – Plaintext (Profil `local`, Standard). Für JSON-Output: `SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun`
+- **Logging-Format** – Produktion: JSON (`logback.xml`); Tests: Plaintext (`logback-test.xml`).
 - **Javadoc** – öffentliche Klassen und Methoden kommentieren
 - **Testabdeckung** – neue Features bitte mit Unit-Tests absichern
 

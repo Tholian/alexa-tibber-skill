@@ -63,79 +63,56 @@ class SomeIntentHandlerTest {
 
 ---
 
-## RestClient mit Mockito mocken
+## Tibber API in Tests: `FakeTibberServer`
 
-Die Fluent-Chain benötigt zwei separate Mocks — `RequestBodyUriSpec` gibt bei `.header()` einen `RequestBodySpec` zurück:
+Die Tibber API wird nicht gemockt, sondern durch einen echten lokalen HTTP-Server ersetzt (`src/test/java/org/tholian/alexa/tibber/testsupport/FakeTibberServer.java`, basiert auf dem JDK-`HttpServer`, Zufallsport, nur Loopback). JSON-Fixtures liefert `TibberJson`.
 
 ```java
-@Mock RestClient restClient;
-@Mock RestClient.RequestBodyUriSpec postSpec;   // restClient.post()
-@Mock RestClient.RequestBodySpec bodySpec;       // postSpec.header(...)
-@Mock RestClient.ResponseSpec responseSpec;      // bodySpec.retrieve()
+private FakeTibberServer server;
+private TibberService service;
 
 @BeforeEach void setUp() {
-    // lenient() verhindert UnnecessaryStubbingException in Format-Tests
-    lenient().when(restClient.post()).thenReturn(postSpec);
-    lenient().when(postSpec.header(anyString(), any(String[].class))).thenReturn(bodySpec);
-    lenient().when(bodySpec.body(any(Object.class))).thenReturn(bodySpec);
-    lenient().when(bodySpec.retrieve()).thenReturn(responseSpec);
-    service = new TibberService(restClient);
+    server = new FakeTibberServer();
+    service = new TibberService(HttpClient.newHttpClient(), new ObjectMapper(), server.uri(),
+            Duration.ofMillis(500), Clock.fixed(NOW, ZoneOffset.UTC));
 }
 
-// Pro Test:
-when(responseSpec.body(TibberResponse.class)).thenReturn(buildResponse(...));
-```
+@AfterEach void tearDown() { server.close(); }
 
-`@MockitoSettings(strictness = Strictness.LENIENT)` auf Klassenebene nötig, da Format-Tests den RestClient-Chain nie aufrufen.
+// Pro Test:
+server.respondWith(200, homeResponse(price(0.25, "NORMAL", "2026-06-15T10:00:00Z"), "[]", "null", "[]"));
+server.delayResponsesBy(Duration.ofSeconds(2));   // Timeout-Test
+assertThat(server.lastAuthorization()).isEqualTo("Bearer test-token");
+```
 
 ---
 
-## Spring Boot 4: Controller testen
+## Lambda-Einstieg testen
 
-`@WebMvcTest` und `@MockBean` wurden in Spring Boot 4 entfernt. Ersatz für Controller-Tests:
+`TibberSkillStreamHandler` hat einen package-privaten Konstruktor mit Umgebungs-Map – so lässt sich der echte Lambda-Einstieg ohne Manipulation von `System.getenv()` testen. Alexa-Requests liefert `AlexaRequestJson`.
 
 ```java
-@ExtendWith(MockitoExtension.class)
-class SkillControllerTest {
+handler = new TibberSkillStreamHandler(Map.of(
+        SkillSettings.ENV_SKILL_ID, "amzn1.ask.skill.test",
+        SkillSettings.ENV_TIBBER_API_URL, tibber.uri().toString()));
 
-    @RestControllerAdvice
-    static class GlobalExceptionHandler {
-        @ExceptionHandler(Exception.class)
-        @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-        void handleAll(Exception ex) {}
-    }
-
-    @Mock CustomSkill skill;
-    private MockMvc mockMvc;
-
-    @BeforeEach void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new SkillController(skill))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
-}
+var out = new ByteArrayOutputStream();
+handler.handleRequest(new ByteArrayInputStream(AlexaRequestJson.launch("amzn1.ask.skill.test").getBytes(UTF_8)), out, null);
+assertThat(out.toString(UTF_8)).contains("Willkommen");
 ```
-
-Hinweis: Spring Framework 7 bietet `@MockitoBean` (`org.springframework.test.context.bean.override.mockito`) als Ersatz für `@MockBean` in Spring-Context-Tests — aber nur wenn ein echter ApplicationContext gebraucht wird.
 
 ---
 
 ## Integrationstest gegen echte Tibber API
 
 ```java
-@SpringBootTest
-@Disabled("Nur manuell ausführen: erfordert Netzwerkzugang zur Tibber API")
-class TibberServiceIntegrationTest {
-    // Demo-Token Stand April 2026 — kann sich ändern, bei UNAUTHENTICATED erneuern
-    private static final String DEMO_TOKEN = "3A77EECF61BD445F47241A5A36202185C35AF3AF58609E19B53F3A8872AD7BE1-1";
-    // ...
-}
+@EnabledIfEnvironmentVariable(named = "TIBBER_DEMO_TOKEN", matches = ".+")
+class TibberServiceIntegrationTest { ... }
 ```
 
-Manueller Aufruf:
+Manueller Aufruf (Demo-Token aus dem Tibber Developer Portal, nie einchecken):
 ```bash
-./gradlew test --tests "*.TibberServiceIntegrationTest" \
-  -Djunit.jupiter.conditions.deactivate="org.junit.jupiter.api.condition.DisabledCondition"
+TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
 ```
 
 **Tibber GraphQL-Schema Hinweise:**
@@ -147,11 +124,13 @@ Manueller Aufruf:
 
 ## Timestamps in Tests
 
-Für `getNextLowestPrice`/`getNextHighestPrice`: relative Timestamps verwenden, keine hardcodierten:
+`TibberService` bekommt eine `Clock` injiziert. Für `getNextLowestPrice`/`getNextHighestPrice` die Uhr fest stellen und feste Zeitpunkte davor/danach verwenden:
 
 ```java
-String past   = OffsetDateTime.now(ZoneOffset.UTC).minusHours(1).toString();
-String future = OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).toString();
+private static final Instant NOW = Instant.parse("2026-06-15T10:00:00Z");
+Clock.fixed(NOW, ZoneOffset.UTC)
+"2026-06-15T09:00:00Z"   // Vergangenheit
+"2026-06-15T11:00:00Z"   // Zukunft
 ```
 
 Für `formatTime`-Tests: Datum muss sicher in CEST (Sommer) oder CET (Winter) liegen — kein Datum um die Zeitumstellung wählen:

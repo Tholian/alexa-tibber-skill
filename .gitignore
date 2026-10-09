@@ -7,7 +7,6 @@
 # -------------------------------------------------------------
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
@@ -34,6 +33,7 @@ buildNumber.properties
 # -------------------------------------------------------------
 *.class
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 *.nar
@@ -75,8 +75,6 @@ out/
 .factorypath
 .project
 .settings/
-.springBeans
-.sts4-cache
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
@@ -100,11 +98,6 @@ bin/
 /dist/
 /nbdist/
 /.nb-gradle/
-
-# -------------------------------------------------------------
-# Spring Boot
-# -------------------------------------------------------------
-spring-shell.log
 
 # -------------------------------------------------------------
 # Logs
@@ -169,6 +162,12 @@ $RECYCLE.BIN/
 # AI-Entwicklungsartefakte (Specs, Pläne – nicht für Repository)
 # -------------------------------------------------------------
 docs/superpowers/
+
+# -------------------------------------------------------------
+# AWS SAM (Build-Verzeichnis und lokale Deploy-Konfiguration)
+# -------------------------------------------------------------
+.aws-sam/
+samconfig.toml
 
 # -------------------------------------------------------------
 # Temporäre Dateien

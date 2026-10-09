@@ -2,183 +2,102 @@
 
 ## Tech Stack
 
-- **Spring Boot 4.0.5** + Spring Framework 7
+- **AWS Lambda** (Runtime `java25`, arm64, SnapStart) – Einstieg `TibberSkillStreamHandler`
 - **Java 25** (JDK toolchain), Anwendungscode in Java
-- **Kotlin DSL** ausschließlich für Gradle-Dateien (`.gradle.kts`)
-- **Gradle 9.4** mit Kotlin DSL
-- **ASK SDK 2.86.0** (Alexa Skills Kit)
-- **JUnit 6** via `spring-boot-starter-test`
-- **Spring RestClient** für Tibber GraphQL API
-- **Lombok** für `@Slf4j`-Annotation (nur Logging, kein weiterer Einsatz)
-- **Logstash Logback Encoder 8.1** für strukturiertes JSON-Logging (CloudWatch)
+- **Kotlin DSL** ausschließlich für Gradle-Dateien (`.gradle.kts`), **Gradle 9.4**
+- **ASK SDK 2.86.0** (`ask-sdk-core` + `ask-sdk-lambda-support`)
+- **java.net.http.HttpClient** + Jackson 2 (transitiv aus dem ASK SDK) für die Tibber GraphQL API
+- **JUnit 6**, AssertJ, Mockito
+- **Lombok** nur für `@Slf4j`
+- **JSpecify** – `@NullMarked` je Package, `@Nullable` explizit
+- **Logback + Logstash Logback Encoder 8.1** – JSON-Logs nach CloudWatch
+- **AWS SAM** (`template.yaml`) für das Deployment
 
 ## Abhängigkeits-Regeln
 
-**ASK SDK:** `ask-sdk:2.86.0` verwenden mit Exclusion von `ask-sdk-servlet-support` (javax.servlet kollidiert mit Jakarta EE 11). Nicht `ask-sdk-core` allein.
-
-```kotlin
-implementation("com.amazon.alexa:ask-sdk:2.86.0") {
-    exclude(group = "com.amazon.alexa", module = "ask-sdk-servlet-support")
-}
-```
-
-**Kein** `spring-boot-starter-graphql` — server-seitiger Starter, nicht für Client-Anfragen. `RestClient` aus `spring-boot-starter-web` reicht.
-
-**Lombok:** Nur als `compileOnly` + `annotationProcessor` (kein Runtime-Dependency). Ausschließlich `@Slf4j` verwenden — alle anderen Logger-Annotationen sind in `lombok.config` auf `error` gesetzt.
-
-**JetBrains Annotations:** `compileOnly("org.jetbrains:annotations:24.1.0")` — wird für `@Language("GraphQL")` in `TibberService` benötigt (IDE-Syntax-Highlighting für eingebettete GraphQL-Strings).
+- **ASK SDK:** nur die zwei Module `com.amazon.alexa:ask-sdk-core:2.86.0` und `com.amazon.alexa:ask-sdk-lambda-support:2.86.0` (enthält `SkillStreamHandler`), nicht das Aggregat `ask-sdk` (zieht unnötige Zusatzmodule ins Lambda-Paket).
+- **`commons-io`** ist per Gradle-`constraints {}` auf 2.18.0 festgelegt (transitives 2.7 aus `ask-sdk-lambda-support` hat CVE-2021-29425).
+- **Kein DI- oder Web-Framework.** Verdrahtung von Hand in `config/SkillFactory` (`new CustomSkillBuilder()`). Neue Handler dort in `requestHandlers(...)` eintragen.
+- **HTTP:** `java.net.http.HttpClient` aus dem JDK, keine zusätzliche HTTP-Bibliothek.
+- **Lombok:** nur `compileOnly` + `annotationProcessor`; ausschließlich `@Slf4j` (`lombok.config` erzwingt das per Compile-Fehler).
+- **JetBrains Annotations:** `compileOnly` – für `@Language("GraphQL")` in `TibberService`.
+- Jede neue Laufzeitabhängigkeit vergrößert Lambda-Paket und Kaltstart – vorher abwägen.
+- **Lambda-Paket:** Zip = `sourceSets.main.output` (Klassen + `logback.xml`) im Root, Laufzeitabhängigkeiten unter `lib/`.
 
 ## Projektstruktur
 
 ```
-src/main/java/org/tholian/alexa/tibber/
-├── AlexaTibberSkillApplication.java
-├── config/SkillConfig.java          # Skill-Bean + RestClient-Bean + Interceptor-Registrierung
-├── controller/SkillController.java  # POST /alexa
-├── handler/                         # 9 Alexa-Request-Handler + 2 Interceptors
-│   ├── LaunchRequestHandler.java
-│   ├── CurrentPriceIntentHandler.java       # GetCurrentPriceIntent
-│   ├── CurrentConsumptionIntentHandler.java # GetCurrentConsumptionIntent
-│   ├── LowestPriceIntentHandler.java        # GetLowestPriceIntent
-│   ├── HighestPriceIntentHandler.java       # GetHighestPriceIntent
-│   ├── HelpIntentHandler.java
-│   ├── FallbackIntentHandler.java
-│   ├── CancelAndStopIntentHandler.java
-│   ├── SessionEndedRequestHandler.java
-│   ├── LoggingInterceptor.java      # RequestInterceptor: MDC befüllen vor jedem Request
-│   └── MDCCleanupInterceptor.java   # ResponseInterceptor: MDC leeren nach jedem Request
-├── model/
-│   ├── GraphQLRequest.java          # record GraphQLRequest(String query)
-│   ├── Price.java                   # record: total, currency, level, startsAt
-│   ├── ConsumptionNode.java         # record: from, to, consumption, unit, cost
-│   └── TibberResponse.java          # verschachtelte Records für GraphQL-Antwort
-└── service/TibberService.java       # Tibber API-Aufrufe + Formatierung
+template.yaml                                       # AWS SAM (Lambda, Alias "live", Alexa-Trigger, Log-Retention)
+skill-package/interactionModels/custom/de-DE.json   # Interaction Model (deutsche Utterances)
 
-src/main/resources/
-├── application.yml                  # server.port=8080, tibber.api-url, spring.profiles.active=local
-├── logback-spring.xml               # Profil 'local': Plaintext; alle anderen: JSON (LogstashEncoder)
-└── interactionModel.json            # Alexa Intent-Schema (deutsche Utterances)
+src/main/java/org/tholian/alexa/tibber/
+├── TibberSkillStreamHandler.java     # Lambda-Einstieg (::handleRequest)
+├── config/
+│   ├── SkillFactory.java             # manuelle Verdrahtung aller Komponenten
+│   └── SkillSettings.java            # ALEXA_SKILL_ID (Pflicht), TIBBER_API_URL (optional)
+├── handler/                          # 9 Request-Handler, Catch-all UnhandledRequestHandler, 2 Interceptoren, GenericExceptionHandler
+├── model/                            # Records für die Tibber GraphQL API
+└── service/
+    ├── TibberApiException.java
+    └── TibberService.java            # Tibber-Aufrufe + Formatierung
+
+src/main/resources/logback.xml        # JSON (LogstashEncoder)
 
 src/test/java/org/tholian/alexa/tibber/
-├── service/TibberServiceTest.java          # 19 Tests, RestClient gemockt
-├── handler/
-│   ├── HandlerTestHelper.java             # ASK SDK Builder-Hilfen, extractSpeech()
-│   ├── LoggingInterceptorTest.java        # 6 Tests: MDC-Felder + Null-Safety
-│   ├── MDCCleanupInterceptorTest.java     # 1 Test: MDC.clear()
-│   ├── CurrentPriceIntentHandlerTest.java
-│   ├── CurrentConsumptionIntentHandlerTest.java
-│   ├── LowestPriceIntentHandlerTest.java
-│   ├── HighestPriceIntentHandlerTest.java
-│   ├── LaunchRequestHandlerTest.java
-│   ├── HelpIntentHandlerTest.java
-│   ├── FallbackIntentHandlerTest.java
-│   ├── CancelAndStopIntentHandlerTest.java
-│   └── SessionEndedRequestHandlerTest.java
-├── controller/SkillControllerTest.java    # MockMvc standaloneSetup
-└── integration/TibberServiceIntegrationTest.java  # @Disabled, manuell
+├── TibberSkillStreamHandlerTest.java # End-to-End: JSON rein, JSON raus
+├── config/                           # SkillSettingsTest, SkillFactoryTest, InteractionModelCoverageTest
+├── handler/                          # Handler-Tests + HandlerTestHelper
+├── integration/TibberServiceIntegrationTest.java   # nur mit TIBBER_DEMO_TOKEN
+├── service/TibberServiceTest.java
+└── testsupport/                      # FakeTibberServer, TibberJson, AlexaRequestJson
+src/test/resources/logback-test.xml   # Plaintext für Tests
 ```
 
 ## Key Design Decisions
 
-- **Kein `ask-sdk-servlet-support`** – `SkillController` deserialisiert manuell mit `ObjectMapperFactory.getMapper()` aus dem ASK SDK
-- **Tibber Token via Alexa Account Linking** – Token kommt aus `context.system.user.accessToken`
-- **Preise in Cent** – Tibber liefert Euro, Ausgabe an Alexa in Cent
-- **Timezone Europe/Berlin** für alle Zeitformatierungen
-- **Preisliste** = `today` + `tomorrow` aus der Tibber API kombiniert (für 24h-Lookups)
-- **`getNextLowestPrice` / `getNextHighestPrice`** filtern auf Preise, deren `startsAt` in der Zukunft liegt
-- **TODO Production**: Alexa Request-Signaturverifizierung (aktuell deaktiviert)
-- **`ConsumptionNode.unit`** – Feld existiert im Model, wird aber nie befüllt: `unit` ist kein gültiges Feld auf dem Tibber `Consumption`-Typ (GraphQL-Fehler `GRAPHQL_VALIDATION_FAILED`). Gültige Felder: `from`, `to`, `consumption`, `cost` (und `consumptionUnit` falls benötigt)
+- **Lambda-Einstieg:** öffentlicher No-Arg-Konstruktor liest `System.getenv()`, package-privater Konstruktor mit `Map` für Tests. Der Skill wird einmal pro Execution Environment gebaut (SnapStart).
+- **Absicherung:** Alexa-Trigger der Lambda (Resource Policy auf die Skill-ID) + `withSkillId(...)` im ASK SDK. Eine Request-Signaturprüfung ist nur bei HTTPS-Endpoints nötig, nicht bei Lambda.
+- **Fail-fast:** ohne `ALEXA_SKILL_ID` schlägt der Lambda-Init fehl.
+- **Timeouts:** Tibber Connect 2 s, Request 4 s (Alexa bricht nach 8 s ab). Fehler → `TibberApiException` (Message ohne Token) → Handler sprechen eine Fehlermeldung.
+- **Tibber Token via Alexa Account Linking** – aus `context.System.user.accessToken`.
+- **Preise in Cent**, **Timezone Europe/Berlin**, Preisliste = `today` + `tomorrow`; `getNextLowestPrice`/`getNextHighestPrice` filtern auf Zukunft über die injizierte `Clock`.
+- **`UnhandledRequestHandler`** ist ein Catch-all und wird in `SkillFactory.create` als LETZTER Handler registriert: ASK SDK 2.86.0 liefert bei fehlendem passendem Handler `null` (keine Exception) – Exception-Handler sehen unbekannte Intents nie. `GenericExceptionHandler` behandelt ausschließlich geworfene Exceptions und antwortet gesprochen statt mit Lambda-Fehler.
+- **`SkillFactory.requestHandlers(...)`** enthält bewusst nur die 9 spezifischen Handler (ohne Catch-all), damit `InteractionModelCoverageTest` aussagekräftig bleibt: Er stellt sicher, dass jeder Intent aus dem Interaction Model einen Handler hat.
+- **Tibber `Consumption`-Typ:** gültige Felder `from`, `to`, `consumption`, `cost` (`unit` existiert nicht → `GRAPHQL_VALIDATION_FAILED`).
 
 ## Logging
 
-### Konzept
+- Produktion: JSON via `LogstashEncoder` (`logback.xml`) → CloudWatch, Retention 14 Tage (SAM).
+- Tests: Plaintext mit MDC-Feldern (`logback-test.xml`).
+- MDC wird zu Beginn jedes Requests geleert (`LoggingInterceptor`) und danach (`MDCCleanupInterceptor`) – wichtig für warme Lambda-Instanzen.
 
-Strukturiertes JSON-Logging für CloudWatch. Jeder Log-Eintrag enthält Alexa-Request-Kontext als eigene Felder. Lokal bleibt Plaintext.
-
-### Profile
-
-| Profil | Format | Aktivierung |
-|--------|--------|-------------|
-| `local` (default) | Plaintext mit MDC-Feldern im Pattern | `spring.profiles.active=local` in `application.yml` |
-| alles andere (`prod`, `staging`, …) | JSON via `LogstashEncoder` | Env-Variable: `SPRING_PROFILES_ACTIVE=prod` |
-
-### MDC-Felder (automatisch in jedem Log-Eintrag)
-
-| Feld | Quelle | Null-safe? |
-|------|--------|------------|
-| `intentName` | `IntentRequest.getIntent().getName()` oder Klassenname des Request-Typs | ja |
-| `requestId` | `request.getRequestId()` | ja |
-| `locale` | `request.getLocale()` | ja |
-| `userId` | `context.getSystem().getUser().getUserId()` | ja (opaque Alexa ID, kein PII) |
+| MDC-Feld | Quelle |
+|---|---|
+| `intentName` | `IntentRequest.getIntent().getName()` oder Klassenname des Request-Typs |
+| `requestId` | `request.getRequestId()` |
+| `locale` | `request.getLocale()` |
+| `userId` | `context.System.user.userId` (pseudonyme Alexa-ID) |
 
 **Sicherheit:** `accessToken` (Tibber Bearer Token) darf **niemals** geloggt werden.
 
-### Logger-Deklaration
+## Tests
 
-Alle Klassen verwenden `@Slf4j` (Lombok). Manuelle `LoggerFactory.getLogger()`-Aufrufe sind nicht mehr nötig:
-
-```java
-@Slf4j
-@Component
-public class MyHandler implements RequestHandler {
-    // log.info(...), log.error(...) etc. direkt nutzbar
-}
-```
-
-### Interceptor-Registrierung in SkillConfig
-
-```java
-Skills.custom()
-    .addRequestHandlers(...)
-    .addRequestInterceptors(loggingInterceptor)
-    .addResponseInterceptors(mdcCleanupInterceptor)
-    .build();
-```
-
-## Spring Boot 4 Test-Besonderheiten
-
-`@WebMvcTest` und `@MockBean` existieren in Spring Boot 4 **nicht mehr**. Controller-Tests verwenden stattdessen:
-
-```java
-@ExtendWith(MockitoExtension.class)
-class SkillControllerTest {
-    @Mock CustomSkill skill;
-    private MockMvc mockMvc;
-
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new SkillController(skill))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
-}
-```
-
-Details und weitere Test-Patterns → `SKILLS.md`
+- Tibber-HTTP wird nicht gemockt: `FakeTibberServer` (JDK `HttpServer`, Zufallsport, Loopback) + `TibberJson`-Fixtures.
+- Alexa-Requests als JSON: `AlexaRequestJson`.
+- Handler-Tests: `HandlerTestHelper` + Mockito-Mock von `TibberService`.
+- Details → `SKILLS.md`
 
 ## Skill-Konfiguration
 
 - Invocation Name: **"tibber strompreis"**
-- Endpoint: `POST /alexa` (Port 8080)
-- Demo-Token (Tibber Entwicklungs-Daten, Stand April 2026): `3A77EECF61BD445F47241A5A36202185C35AF3AF58609E19B53F3A8872AD7BE1-1`
-- Demo-Account liefert Preise in **SEK** (schwedische Krone), nicht EUR
-- Alter Token `5K4MVS-OjfWhK_4yrjOlFe1F6kJXPVf7eQYggo8ebAE` ist abgelaufen (UNAUTHENTICATED)
+- Endpoint: Lambda-Alias `live` (Stack-Output `SkillEndpointArn`), Region `eu-west-1`
+- Demo-Token: im Tibber Developer Portal; nur als Umgebungsvariable `TIBBER_DEMO_TOKEN` verwenden, nie einchecken. Der Demo-Account liefert Preise in **SEK**.
 
 ## Build & Test
 
 ```bash
-./gradlew build
-./gradlew bootRun
-./gradlew test                          # alle Tests (IntegrationTest übersprungen)
+./gradlew build                                  # Tests + build/distributions/alexa-tibber-skill.zip
 ./gradlew test --tests "*.TibberServiceTest"
-
-# Integrationstest manuell gegen echte Tibber API:
-./gradlew test --tests "*.TibberServiceIntegrationTest" \
-  -Djunit.jupiter.conditions.deactivate="org.junit.jupiter.api.condition.DisabledCondition"
-
-# Lokales Testen mit HTTPS:
-ngrok http 8080
-
-# Produktion: JSON-Logging aktivieren
-SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun
+TIBBER_DEMO_TOKEN=<token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
+# Deployment (sam deploy) nur manuell durch den Maintainer – siehe README
 ```
