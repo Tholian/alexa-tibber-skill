@@ -6,14 +6,57 @@ Frag Alexa einfach nach dem aktuellen Strompreis, deinem Verbrauch oder der gün
 
 ---
 
-## Features
+## Für Nutzerinnen und Nutzer
 
-| Sprachbefehl (Beispiel) | Funktion |
+### Was der Skill kann
+
+Mit einem dynamischen Stromtarif von Tibber ändert sich der Preis stündlich. Der Skill sagt dir per Sprache, was Strom gerade kostet und wann es sich lohnt, die Waschmaschine, den Geschirrspüler oder das Laden des E-Autos zu starten.
+
+| Du sagst (Beispiel) | Alexa antwortet mit |
 |---|---|
-| „Alexa, frag tibber strompreis, was kostet Strom gerade" | Aktueller Strompreis in Cent/kWh |
-| „Alexa, frag tibber strompreis, wie viel Strom verbrauche ich gerade" | Aktueller Verbrauch aus dem Smart Meter |
-| „Alexa, frag tibber strompreis, wann ist Strom am günstigsten" | Nächste günstigste Stunde (heute/morgen) |
-| „Alexa, frag tibber strompreis, wann ist Strom am teuersten" | Nächste teuerste Stunde (heute/morgen) |
+| „Alexa, frag tibber strompreis, was kostet Strom gerade?“ | dem aktuellen Preis in Cent pro Kilowattstunde und dem Preisniveau (z. B. „günstig“ oder „teuer“) |
+| „Alexa, frag tibber strompreis, wann ist Strom am günstigsten?“ | der Uhrzeit mit dem niedrigsten Preis in den nächsten 24 Stunden |
+| „Alexa, frag tibber strompreis, wann ist Strom am teuersten?“ | der Uhrzeit mit dem höchsten Preis in den nächsten 24 Stunden |
+| „Alexa, frag tibber strompreis, wie viel Strom verbrauche ich gerade?“ | deinem Verbrauch in Kilowattstunden und den Kosten der zuletzt abgerechneten Stunde |
+
+Du kannst den Skill auch mit „Alexa, öffne tibber strompreis“ starten und dann deine Frage stellen. „Hilfe“ nennt dir alle Möglichkeiten, „Stopp“ beendet den Skill. Alle Uhrzeiten gelten in deutscher Zeit.
+
+### Was du brauchst
+
+- ein Alexa-fähiges Gerät oder die Alexa-App auf dem Smartphone,
+- ein Tibber-Konto mit aktivem Stromvertrag,
+- für Verbrauchsangaben zusätzlich einen [Tibber Pulse](https://tibber.com/de/pulse) oder ein von Tibber ausgelesenes Smart Meter,
+- einen persönlichen Tibber-Zugangstoken (Access Token) – wie du ihn erzeugst, steht unten.
+
+### Einrichtung in vier Schritten
+
+1. **Token erzeugen:** Melde dich auf [developer.tibber.com](https://developer.tibber.com/) mit deinem Tibber-Konto an, öffne *Access Token* und erzeuge einen Token. Kopiere ihn.
+2. **Skill aktivieren:** Suche in der Alexa-App unter *Mehr* → *Skills & Spiele* nach dem Skill und tippe auf *Zur Verwendung aktivieren*.
+3. **Konto verknüpfen:** Die Alexa-App öffnet die Verknüpfungsseite. Füge dort deinen Token ein und tippe auf *Verknüpfen*. Der Token wird bei Tibber geprüft; bei einem Tippfehler zeigt die Seite einen Hinweis.
+4. **Fragen:** „Alexa, frag tibber strompreis, was kostet Strom gerade?“
+
+### Deine Daten
+
+- Der Tibber-Token lässt sich nicht auf Lesezugriff beschränken – er gewährt vollen Zugriff auf die Tibber-API deines Kontos. Der Skill nutzt ihn ausschließlich lesend für Preise und Verbrauch.
+- Nach der Verknüpfung speichert Amazon den Token und schickt ihn bei jeder Frage an den Skill mit. Der Skill selbst speichert ihn nicht und schreibt ihn nicht in Logs.
+- Du kannst jederzeit aussteigen: Verknüpfung in der Alexa-App beim Skill aufheben und den Token auf developer.tibber.com löschen.
+- Details stehen in der Datenschutzerklärung, die in der Skill-Beschreibung im Alexa Skill Store verlinkt ist.
+
+### Häufige Fragen
+
+| Frage | Antwort |
+|---|---|
+| Alexa sagt „Deine Verknüpfung mit Tibber ist nicht mehr gültig“. | Der Token wurde bei Tibber gelöscht oder ist ungültig. Erzeuge einen neuen Token und verknüpfe das Konto in der Alexa-App neu. |
+| Alexa sagt „Bitte verknüpfe zunächst deinen Tibber Account“. | Die Verknüpfung fehlt noch – siehe Schritt 3 der Einrichtung. |
+| Es kommen keine Verbrauchsdaten. | Verbrauchsdaten gibt es nur mit Tibber Pulse oder einem von Tibber ausgelesenen Smart Meter. Die letzte Stunde wird außerdem erst mit etwas Verzögerung abgerechnet. |
+| Die günstigste Stunde liegt nie am nächsten Tag. | Tibber veröffentlicht die Preise für morgen in der Regel am frühen Nachmittag. Vorher kennt der Skill nur die Preise für heute. |
+| Alexa meldet ein Problem beim Abrufen. | Tibber war kurz nicht erreichbar. Versuch es nach einem Moment erneut. |
+
+---
+
+## Für Entwickler und Betreiber
+
+Die folgenden Abschnitte beschreiben, wie der Skill gebaut, getestet und auf AWS betrieben wird.
 
 **Invocation Name:** `tibber strompreis`
 
