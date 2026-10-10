@@ -28,39 +28,39 @@ dependencies {
     // KI-generiert: Sicherheits-Pin – ask-sdk-lambda-support bringt transitiv commons-io 2.7 mit (CVE-2021-29425);
     // die Constraint hebt nur die transitive Version an, ohne commons-io direkt einzubinden
     constraints {
-        implementation("commons-io:commons-io:2.18.0") {
+        implementation("commons-io:commons-io:2.22.0") {
             because("ask-sdk-lambda-support bringt transitiv commons-io 2.7 mit (CVE-2021-29425)")
         }
     }
     // KI-generiert: Jackson wird direkt importiert (TibberGraphQlClient, Modell) und daher explizit deklariert;
     // die Version entspricht der bereits aufgelösten (ask-sdk-model-runtime bringt ältere mit)
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
     // Lambda-Laufzeit-Interfaces (RequestStreamHandler, Context)
-    implementation("com.amazonaws:aws-lambda-java-core:1.2.3")
+    implementation("com.amazonaws:aws-lambda-java-core:1.4.0")
     // SLF4J-API explizit auf 2.x – ask-sdk-core bringt transitiv 1.7.x mit, Logback 1.5 benötigt 2.x
-    implementation("org.slf4j:slf4j-api:2.0.17")
+    implementation("org.slf4j:slf4j-api:2.0.20")
 
     // JSON-Logging nach CloudWatch
-    runtimeOnly("ch.qos.logback:logback-classic:1.5.18")
+    runtimeOnly("ch.qos.logback:logback-classic:1.6.5")
     runtimeOnly("net.logstash.logback:logstash-logback-encoder:8.1")
 
     // Nur zur Compile-Zeit (nicht im Lambda-Paket): @Language, @NullMarked/@Nullable, @Slf4j
     compileOnly("org.jetbrains:annotations:24.1.0")
-    compileOnly("org.jspecify:jspecify:1.0.0")
-    compileOnly("org.projectlombok:lombok:1.18.42")
-    annotationProcessor("org.projectlombok:lombok:1.18.42")
+    compileOnly("org.jspecify:jspecify:1.0.1")
+    compileOnly("org.projectlombok:lombok:1.18.48")
+    annotationProcessor("org.projectlombok:lombok:1.18.48")
 
-    testImplementation(platform("org.junit:junit-bom:6.1.2"))
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("org.assertj:assertj-core:3.27.3")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.20.0")
+    testImplementation("org.assertj:assertj-core:3.27.7")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.24.0")
     // KI-generiert: Logback-API im Test, um zu prüfen, dass der Tibber-Token nie geloggt wird
-    testImplementation("ch.qos.logback:logback-classic:1.5.18")
+    testImplementation("ch.qos.logback:logback-classic:1.6.5")
     // KI-generiert: WebSocket-Server nur für Tests (FakeTibberWebSocketServer) – nicht im Lambda-Paket;
     // der Skill selbst nutzt java.net.http.WebSocket aus dem JDK
     testImplementation("org.java-websocket:Java-WebSocket:1.6.0")
-    mockitoAgent("org.mockito:mockito-core:5.20.0") {
+    mockitoAgent("org.mockito:mockito-core:5.24.0") {
         isTransitive = false
     }
 }
