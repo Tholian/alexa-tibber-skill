@@ -25,13 +25,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # KI-generiert: SICHERHEIT: Token nicht in .git/config ablegen – spätere Schritte brauchen keinen Git-Zugriff
           persist-credentials: false
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
@@ -39,7 +39,7 @@ jobs:
       # KI-generiert: Richtet Gradle-Caching ein und prüft die Prüfsumme des Gradle-Wrappers
       # SICHERHEIT: Die Wrapper-Validierung erkennt manipulierte gradle-wrapper.jar-Dateien (z. B. aus fremden PRs)
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
 
       # KI-generiert: `build` führt alle Tests aus und erzeugt build/distributions/alexa-tibber-skill.zip.
       # SICHERHEIT: TIBBER_DEMO_TOKEN wird bewusst NICHT gesetzt – der Integrationstest sendet Daten an Tibber
@@ -50,7 +50,7 @@ jobs:
       # KI-generiert: Testberichte auch bei Fehlschlag hochladen, damit fehlgeschlagene Tests nachvollziehbar sind
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-reports
           path: |
@@ -59,7 +59,7 @@ jobs:
           retention-days: 7
 
       - name: Upload Lambda package
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: alexa-tibber-skill
           path: build/distributions/alexa-tibber-skill.zip
