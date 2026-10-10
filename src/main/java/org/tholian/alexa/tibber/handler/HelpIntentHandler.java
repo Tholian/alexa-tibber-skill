@@ -17,12 +17,11 @@ public class HelpIntentHandler implements RequestHandler {
 
 	@Override
 	public Optional<Response> handle( HandlerInput input ) {
-		String speech = "Mit dem Tibber Strompreis Skill kannst du Folgendes fragen: " +
-		                "Erstens: Was kostet Strom gerade? " +
-		                "Zweitens: Wann ist Strom am günstigsten? " +
-		                "Drittens: Wann ist Strom am teuersten? " +
-		                "Und viertens: Wie viel Strom verbrauche ich gerade? " +
-		                "Was möchtest du wissen?";
+		String speech = "Mit dem Tibber Strompreis Skill kannst du nach Strompreisen fragen, etwa: Was kostet Strom um 18 Uhr? "
+		                + "Oder: Ist Strom gerade günstig? Nach günstigen Zeiten: Wann sind die günstigsten drei Stunden? "
+		                + "Nach deinem Verbrauch: Wie viel Strom habe ich letzte Woche verbraucht? Oder: Wie viel Watt verbrauche ich gerade? "
+		                + "Und nach deiner Einspeisung: Wie viel habe ich im September eingespeist? "
+		                + "Was möchtest du wissen?";
 		return input.getResponseBuilder( )
 				.withSpeech( speech )
 				.withReprompt( "Was möchtest du wissen?" )

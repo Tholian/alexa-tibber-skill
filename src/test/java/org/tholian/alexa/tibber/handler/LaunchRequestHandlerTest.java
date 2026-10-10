@@ -36,6 +36,6 @@ class LaunchRequestHandlerTest {
 
         assertThat(response).isPresent();
         // KI-generiert: Produktionscode liefert "Willkommen beim Tibber Strompreis Skill! ..."
-        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("Willkommen");
+        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("Willkommen").contains("Waschmaschine");
     }
 }

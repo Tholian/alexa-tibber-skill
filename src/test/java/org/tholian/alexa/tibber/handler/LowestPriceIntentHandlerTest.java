@@ -1,4 +1,3 @@
-
 package org.tholian.alexa.tibber.handler;
 
 import com.amazon.ask.model.ui.LinkAccountCard;
@@ -7,101 +6,103 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.tholian.alexa.tibber.model.Price;
+import org.tholian.alexa.tibber.service.PriceService;
+import org.tholian.alexa.tibber.service.SpeechFormatter;
 import org.tholian.alexa.tibber.service.TibberAuthenticationException;
-import org.tholian.alexa.tibber.service.TibberService;
 
-import java.util.Optional;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.tholian.alexa.tibber.handler.HandlerTestHelper.CLOCK;
+import static org.tholian.alexa.tibber.handler.HandlerTestHelper.NOW;
+import static org.tholian.alexa.tibber.handler.HandlerTestHelper.extractSpeech;
+import static org.tholian.alexa.tibber.handler.HandlerTestHelper.intentInput;
+import static org.tholian.alexa.tibber.testsupport.PriceFixtures.blocks;
+import static org.tholian.alexa.tibber.testsupport.PriceFixtures.quarters;
+import static org.tholian.alexa.tibber.testsupport.PriceFixtures.schedule;
 
-// KI-generiert: Unit-Tests für LowestPriceIntentHandler — prüft canHandle, Token-Validierung, leere Preisdaten, Tiefstpreis-Ausgabe und Fehlerfall
+// KI-generiert: Günstigste Stunde = günstigstes 60-Minuten-Fenster ab der laufenden Viertelstunde (10:00 Uhr Berlin)
 @ExtendWith(MockitoExtension.class)
 class LowestPriceIntentHandlerTest {
 
     @Mock
-    private TibberService tibberService;
+    private PriceService priceService;
 
     private LowestPriceIntentHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new LowestPriceIntentHandler(tibberService);
+        handler = new LowestPriceIntentHandler(priceService, new SpeechFormatter(CLOCK), CLOCK);
     }
 
     @Test
-    void canHandle_matchesGetLowestPriceIntent() {
-        var input = HandlerTestHelper.intentInput("GetLowestPriceIntent", "token");
-        assertThat(handler.canHandle(input)).isTrue();
+    void canHandle_matchesOnlyGetLowestPriceIntent() {
+        assertThat(handler.canHandle(intentInput("GetLowestPriceIntent", "token"))).isTrue();
+        assertThat(handler.canHandle(intentInput("GetHighestPriceIntent", "token"))).isFalse();
     }
 
     @Test
-    void canHandle_doesNotMatchOtherIntent() {
-        var input = HandlerTestHelper.intentInput("GetHighestPriceIntent", "token");
-        assertThat(handler.canHandle(input)).isFalse();
+    void handle_withNullToken_asksForLinkingWithCard() {
+        var response = handler.handle(intentInput("GetLowestPriceIntent", null)).orElseThrow();
+
+        assertThat(extractSpeech(response)).contains("verknüpfe");
+        assertThat(response.getCard()).isInstanceOf(LinkAccountCard.class);
     }
 
     @Test
-    void handle_withNullToken_returnsSpeechWithAccountLinkingHint() {
-        var input = HandlerTestHelper.intentInput("GetLowestPriceIntent", null);
+    void handle_withCheapestHourLater_namesStartAndAverage() {
+        when(priceService.prices("test-token")).thenReturn(schedule(blocks(NOW, 4, 0.30, 0.10, 0.20)));
 
-        var response = handler.handle(input);
+        var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token")).orElseThrow();
 
-        assertThat(response).isPresent();
-        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("verknüpfe");
-        assertThat(response.get().getCard()).isInstanceOf(LinkAccountCard.class);
+        assertThat(extractSpeech(response))
+                .contains("Die günstigste Stunde beginnt heute um 11:00 Uhr, im Schnitt 10,0 Cent pro Kilowattstunde.");
     }
 
     @Test
-    void handle_withNoPriceData_returnsNoDataSpeech() {
-        var input = HandlerTestHelper.intentInput("GetLowestPriceIntent", "test-token");
-        when(tibberService.getNextLowestPrice("test-token")).thenReturn(Optional.empty());
+    void handle_whenCheapestHourIsRunning_saysSofort() {
+        when(priceService.prices("test-token")).thenReturn(schedule(blocks(NOW, 4, 0.10, 0.30)));
 
-        var response = handler.handle(input);
+        var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token")).orElseThrow();
 
-        assertThat(response).isPresent();
-        // KI-generiert: Produktionscode liefert "Es sind keine Preisdaten für die nächsten Stunden verfügbar."
-        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("keine Preisdaten");
+        assertThat(extractSpeech(response)).contains("Die günstigste Stunde beginnt sofort");
     }
 
     @Test
-    void handle_withLowestPrice_returnsSpeechWithTimeAndPrice() {
-        var input = HandlerTestHelper.intentInput("GetLowestPriceIntent", "test-token");
-        var price = new Price(0.15, "EUR", "CHEAP", "2026-04-22T16:00:00+02:00");
-        when(tibberService.getNextLowestPrice("test-token")).thenReturn(Optional.of(price));
-        when(tibberService.formatTime("2026-04-22T16:00:00+02:00")).thenReturn("16:00 Uhr");
-        when(tibberService.formatPrice(0.15)).thenReturn("15,0 Cent");
+    void handle_ignoresPastSlots() {
+        when(priceService.prices("test-token")).thenReturn(schedule(blocks(NOW.minus(Duration.ofHours(1)), 4, 0.01, 0.30, 0.20)));
 
-        var response = handler.handle(input);
+        var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token")).orElseThrow();
 
-        assertThat(response).isPresent();
-        String speech = HandlerTestHelper.extractSpeech(response.get());
-        // KI-generiert: Produktionscode liefert "Der günstigste Strompreis in den nächsten 24 Stunden ist um ..."
-        assertThat(speech).contains("16:00 Uhr").contains("15,0 Cent").contains("günstigste");
+        assertThat(extractSpeech(response)).contains("heute um 11:00 Uhr").contains("20,0 Cent");
     }
 
     @Test
-    void handle_whenServiceThrowsException_returnsErrorSpeech() {
-        var input = HandlerTestHelper.intentInput("GetLowestPriceIntent", "test-token");
-        when(tibberService.getNextLowestPrice("test-token"))
-                .thenThrow(new RuntimeException("API unavailable"));
+    void handle_withLessThanAnHourOfPrices_saysNoData() {
+        when(priceService.prices("test-token")).thenReturn(schedule(quarters(NOW, 0.1, 0.1, 0.1)));
 
-        var response = handler.handle(input);
+        var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token")).orElseThrow();
 
-        assertThat(response).isPresent();
-        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("Problem");
+        assertThat(extractSpeech(response)).contains("keine Preisdaten");
+    }
+
+    @Test
+    void handle_whenServiceFails_saysProblem() {
+        when(priceService.prices("test-token")).thenThrow(new RuntimeException("API unavailable"));
+
+        var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token")).orElseThrow();
+
+        assertThat(extractSpeech(response)).contains("Problem");
     }
 
     @Test
     void handle_whenTibberRejectsToken_asksToRelinkWithCard() {
-        var input = HandlerTestHelper.intentInput("GetLowestPriceIntent", "test-token");
-        when(tibberService.getNextLowestPrice("test-token")).thenThrow(new TibberAuthenticationException("abgelehnt"));
+        when(priceService.prices("test-token")).thenThrow(new TibberAuthenticationException("abgelehnt"));
 
-        var response = handler.handle(input);
+        var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token")).orElseThrow();
 
-        assertThat(response).isPresent();
-        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("nicht mehr gültig");
-        assertThat(response.get().getCard()).isInstanceOf(LinkAccountCard.class);
+        assertThat(extractSpeech(response)).contains("nicht mehr gültig");
+        assertThat(response.getCard()).isInstanceOf(LinkAccountCard.class);
     }
 }

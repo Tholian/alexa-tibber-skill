@@ -32,7 +32,7 @@ dependencies {
             because("ask-sdk-lambda-support bringt transitiv commons-io 2.7 mit (CVE-2021-29425)")
         }
     }
-    // KI-generiert: Jackson wird direkt importiert (TibberService, Modell) und daher explizit deklariert;
+    // KI-generiert: Jackson wird direkt importiert (TibberGraphQlClient, Modell) und daher explizit deklariert;
     // die Version entspricht der bereits aufgelösten (ask-sdk-model-runtime bringt ältere mit)
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
     // Lambda-Laufzeit-Interfaces (RequestStreamHandler, Context)
@@ -57,6 +57,9 @@ dependencies {
     testImplementation("org.mockito:mockito-junit-jupiter:5.20.0")
     // KI-generiert: Logback-API im Test, um zu prüfen, dass der Tibber-Token nie geloggt wird
     testImplementation("ch.qos.logback:logback-classic:1.5.18")
+    // KI-generiert: WebSocket-Server nur für Tests (FakeTibberWebSocketServer) – nicht im Lambda-Paket;
+    // der Skill selbst nutzt java.net.http.WebSocket aus dem JDK
+    testImplementation("org.java-websocket:Java-WebSocket:1.6.0")
     mockitoAgent("org.mockito:mockito-core:5.20.0") {
         isTransitive = false
     }

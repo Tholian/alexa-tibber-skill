@@ -10,6 +10,10 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -29,6 +33,8 @@ public final class FakeTibberServer implements AutoCloseable {
     private volatile Duration bodyDelay = Duration.ZERO;
     private volatile String lastAuthorization;
     private volatile String lastRequestBody;
+    private final Map<String, String> bodiesByMarker = new ConcurrentHashMap<>();
+    private final List<String> requestBodies = new CopyOnWriteArrayList<>();
 
     public FakeTibberServer() {
         try {
@@ -41,8 +47,9 @@ public final class FakeTibberServer implements AutoCloseable {
             requestCount.incrementAndGet();
             lastAuthorization = exchange.getRequestHeaders().getFirst("Authorization");
             lastRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            requestBodies.add(lastRequestBody);
             pause(delay);
-            byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = bodyFor(lastRequestBody).getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(status, bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
@@ -65,6 +72,27 @@ public final class FakeTibberServer implements AutoCloseable {
     public void respondWith(int status, String body) {
         this.status = status;
         this.responseBody = body;
+    }
+
+    /**
+     * KI-generiert: Liefert {@code body}, wenn der Request-Body {@code marker} enthält (z. B. {@code "resolution":"MONTHLY"}).
+     * Für Abläufe mit mehreren unterschiedlichen Tibber-Abfragen; sonst gilt {@link #respondWith(int, String)}.
+     */
+    public void respondTo(String marker, String body) {
+        bodiesByMarker.put(marker, body);
+    }
+
+    /** KI-generiert: Alle Request-Bodies in Eingangsreihenfolge. */
+    public List<String> requestBodies() {
+        return List.copyOf(requestBodies);
+    }
+
+    private String bodyFor(String requestBody) {
+        return bodiesByMarker.entrySet().stream()
+                .filter(entry -> requestBody.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(responseBody);
     }
 
     /** KI-generiert: Verzögert jede Antwort – zum Testen der Client-Timeouts. */

@@ -18,9 +18,10 @@
 - **ASK SDK:** nur die zwei Module `com.amazon.alexa:ask-sdk-core:2.86.0` und `com.amazon.alexa:ask-sdk-lambda-support:2.86.0` (enthält `SkillStreamHandler`), nicht das Aggregat `ask-sdk` (zieht unnötige Zusatzmodule ins Lambda-Paket).
 - **`commons-io`** ist per Gradle-`constraints {}` auf 2.18.0 festgelegt (transitives 2.7 aus `ask-sdk-lambda-support` hat CVE-2021-29425).
 - **Kein DI- oder Web-Framework.** Verdrahtung von Hand in `config/SkillFactory` (`new CustomSkillBuilder()`). Neue Handler dort in `requestHandlers(...)` eintragen.
-- **HTTP:** `java.net.http.HttpClient` aus dem JDK, keine zusätzliche HTTP-Bibliothek.
+- **HTTP/WebSocket:** `java.net.http.HttpClient` bzw. `java.net.http.WebSocket` aus dem JDK, keine zusätzliche Bibliothek.
+- **Java-WebSocket** (`org.java-websocket:Java-WebSocket:1.6.0`) nur als `testImplementation` für `FakeTibberWebSocketServer` – nie im Lambda-Paket.
 - **Lombok:** nur `compileOnly` + `annotationProcessor`; ausschließlich `@Slf4j` (`lombok.config` erzwingt das per Compile-Fehler).
-- **JetBrains Annotations:** `compileOnly` – für `@Language("GraphQL")` in `TibberService`.
+- **JetBrains Annotations:** `compileOnly` – für `@Language("GraphQL")` in den Services (`PriceService`, `EnergyService`, `LiveService` usw.).
 - Jede neue Laufzeitabhängigkeit vergrößert Lambda-Paket und Kaltstart – vorher abwägen.
 - **Lambda-Paket:** Zip = `sourceSets.main.output` (Klassen + `logback.xml`) im Root, Laufzeitabhängigkeiten unter `lib/`.
 
@@ -35,31 +36,38 @@ skill-package/interactionModels/custom/de-DE.json   # Interaction Model (deutsch
 src/main/java/org/tholian/alexa/tibber/
 ├── TibberSkillStreamHandler.java     # Lambda-Einstieg (::handleRequest)
 ├── config/
-│   ├── SkillFactory.java             # manuelle Verdrahtung aller Komponenten
+│   ├── SkillFactory.java             # manuelle Verdrahtung, Timeouts, LIVE_BUDGET (6 s)
+│   ├── SkillServices.java            # alle Services + gemeinsame Clock
 │   ├── SkillSettings.java            # ALEXA_SKILL_ID (Pflicht), TIBBER_API_URL (optional; nur https, http nur Loopback – sonst Init-Fehler)
-│   └── TibberApiUrls.java            # gemeinsame Validierung der Tibber-URL
-├── handler/                          # 9 Request-Handler, Catch-all UnhandledRequestHandler, 2 Interceptoren, GenericExceptionHandler,
-│                                     # AccountLinkingResponses (Link-/Relink-Antworten, Token-Auslese)
+│   └── TibberApiUrls.java            # Validierung der Tibber-URL und der WebSocket-URL (nur wss auf *.tibber.com)
+├── handler/                          # 16 Request-Handler (11 erben TibberIntentHandler: Token, Link/Relink, Fehlerantwort),
+│                                     # Catch-all UnhandledRequestHandler, 2 Interceptoren, GenericExceptionHandler,
+│                                     # AccountLinkingResponses, Slots (Slot-Zugriff, Rückfragen)
 ├── linking/                          # Account-Linking-Brücke (Implicit Grant): AccountLinkingHandler (Lambda-Einstieg),
 │                                     # AuthorizationRequest, LinkingSettings, LinkingPage, FormData, HttpResult,
 │                                     # InvalidAuthorizationRequestException
-├── model/                            # Records für die Tibber GraphQL API
+├── model/                            # Records für die Tibber GraphQL API (Preis, Verbrauch, Einspeisung, Live-Messung)
 └── service/
+    ├── TibberGraphQlClient.java      # HTTP-Transport, GraphQL-Variablen, Timeout, Fehlerabbildung
+    ├── TibberAccountService.java     # Token-Prüfung (Account Linking)
+    ├── PriceService, PriceSchedule, PriceWindow(s), DaySummary          # Viertelstundenpreise + reine Preislogik
+    ├── EnergyService, EnergyResult, EnergyKind, DatePeriod              # Verbrauch/Einspeisung je Zeitraum
+    ├── LiveService, LiveMeasurementClient, CurrentUsage, Deadline       # Pulse-Live-Daten per WebSocket
+    ├── SpeechFormatter.java          # alle Sprachtexte (Währung, Energie, Uhrzeit mit Tag, Zeiträume)
     ├── TibberApiException.java
-    ├── TibberAuthenticationException.java
-    └── TibberService.java            # Tibber-Aufrufe + Formatierung
+    └── TibberAuthenticationException.java
 
 src/main/resources/logback.xml        # JSON (LogstashEncoder)
 
 src/test/java/org/tholian/alexa/tibber/
 ├── TibberSkillStreamHandlerTest.java # End-to-End: JSON rein, JSON raus
-├── config/                           # SkillSettingsTest, SkillFactoryTest, InteractionModelCoverageTest
+├── config/                           # SkillSettingsTest, SkillFactoryTest, InteractionModelCoverageTest, TibberApiUrlsTest
 ├── handler/                          # Handler-Tests + HandlerTestHelper, AccountLinkingResponsesTest
-├── integration/TibberServiceIntegrationTest.java   # nur mit TIBBER_DEMO_TOKEN (sendet Daten an Tibber)
+├── integration/TibberApiIntegrationTest.java   # nur mit TIBBER_DEMO_TOKEN (sendet Daten an Tibber)
 ├── linking/                          # AccountLinkingHandlerTest (End-to-End inkl. Token-Leck-Prüfung), AuthorizationRequestTest,
 │                                     # FormDataTest, HttpResultTest, LinkingPageTest, LinkingSettingsTest
-├── service/TibberServiceTest.java
-└── testsupport/                      # FakeTibberServer, TibberJson, AlexaRequestJson, ApiGatewayEvents
+├── service/                          # Client-, Preis-, Energie-, Live- und Formatter-Tests
+└── testsupport/                      # FakeTibberServer, TibberJson, PriceFixtures, FakeTibberWebSocketServer, AlexaRequestJson, ApiGatewayEvents
 src/test/resources/logback-test.xml   # Plaintext für Tests
 ```
 
@@ -68,7 +76,7 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 - **Lambda-Einstieg:** öffentlicher No-Arg-Konstruktor liest `System.getenv()`, package-privater Konstruktor mit `Map` für Tests. Der Skill wird einmal pro Execution Environment gebaut (SnapStart).
 - **Absicherung:** Alexa-Trigger der Lambda (Resource Policy auf die Skill-ID) + `withSkillId(...)` im ASK SDK. Eine Request-Signaturprüfung ist nur bei HTTPS-Endpoints nötig, nicht bei Lambda.
 - **Fail-fast:** ohne `ALEXA_SKILL_ID` schlägt der Lambda-Init fehl.
-- **Timeouts:** Tibber Connect 2 s, Request 4 s als Gesamt-Timeout inkl. Body (`sendAsync` + `future.get`; Alexa bricht nach 8 s ab). Fehler → `TibberApiException` (Message ohne Token) → Handler sprechen eine Fehlermeldung.
+- **Timeouts:** Tibber Connect 2 s, Request 4 s als Gesamt-Timeout inkl. Body (`sendAsync` + `future.get`; Alexa bricht nach 8 s ab). Live-Daten teilen sich 6 s (`Deadline`: HTTP-Vorabfrage + WebSocket); auch `EnergyService` teilt sich pro Anfrage ein Budget von 4 s für seine ein bis zwei Abfragen. Fehler → `TibberApiException` (Message ohne Token) → Handler sprechen eine Fehlermeldung (`TibberIntentHandler`).
 - **Tibber Token via Alexa Account Linking** – aus `context.System.user.accessToken`.
 - **Account Linking:** Implicit Grant über die eigene Lambda `AccountLinkingHandler` hinter API Gateway HTTP API (`/link`; je Route GET/POST 5 req/s, Burst 10). Tibber bietet für die Preis-API kein OAuth, deshalb fügen Nutzer ihren persönlichen Token ein. Die Seite prüft ihn per Minimalabfrage (`verifyToken`) und leitet nur an exakt konfigurierte Amazon-Redirect-URLs weiter. Kein Speicher, kein Logging des Tokens, kein JavaScript, strenge CSP.
 - **Abgelehnter Token** (HTTP 401/403 oder GraphQL `UNAUTHENTICATED`) → `TibberAuthenticationException` → Handler antworten über `AccountLinkingResponses.relinkAccount` mit LinkAccount-Card.
@@ -78,10 +86,15 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
   - Die API läuft auf der Stage `$default`; der Handler prüft `rawPath == "/link"` und das Formular postet auf `/link` – keine benannte Stage einführen.
   - Unerwartete Exceptions fängt `handle` ab und loggt nur den Klassennamen (Messages könnten Eingaben enthalten); `HttpResult.toString()` schwärzt `Location`, weil dort der Token steht.
   - Keine `script-src` in der CSP: Die Seite kommt ohne JavaScript aus; das einzige Inline-Style ist per SHA-256-Hash erlaubt – Änderungen an `LinkingPage.CSS` ändern den Hash automatisch.
-- **Preise in Cent**, **Timezone Europe/Berlin**, Preisliste = `today` + `tomorrow`; `getNextLowestPrice`/`getNextHighestPrice` filtern auf Zukunft über die injizierte `Clock`.
+- **Preise in Viertelstunden:** `priceInfo(resolution: QUARTER_HOURLY)` (ohne Argument liefert Tibber Stundenwerte); liefert Tibber doch Stundenwerte, teilt `PriceSchedule` sie in je vier Viertelstunden. Alle Zeitvergleiche über `Instant` – am 25.10.2026 (Zeitumstellung) hat der Tag 100 Viertelstunden. „Günstigste/teuerste Stunde“ = günstigstes/teuerstes 60-Minuten-Fenster ab der laufenden Viertelstunde (`PriceWindows`). Preisliste = `today` + `tomorrow`, Timezone Europe/Berlin, „jetzt“ aus der injizierten `Clock` (`SkillServices`).
+- **Währung:** `SpeechFormatter` spricht EUR als Cent/Euro, SEK/NOK/DKK als Öre/Kronen (Demo-Account = SEK), sonst ISO-Code.
+- **GraphQL-Variablen:** variable Werte nur über `variables` (`GraphQLRequest`), nie per String-Verkettung (SICHERHEIT: keine Injection über Slot-Werte).
+- **Zeiträume:** `DatePeriod` liest `AMAZON.DATE` (Tag, ISO-Woche, Monat, Jahr; Wochenende/Jahreszeit → Rückfrage). `EnergyService`: heute stündlich („bisher“), laufende Zeiträume bis gestern, Grenzen 400 Tage/120 Monate/20 Jahre; die ein bis zwei Abfragen pro Anfrage teilen sich ein Budget von 4 s.
+- **Live-Daten:** `LiveService` fragt per HTTP `websocketSubscriptionUrl`, Home-ID, `features.realTimeConsumptionEnabled` und die letzte Stunde ab; `LiveMeasurementClient` holt eine Messung per `graphql-transport-ws` (JDK-WebSocket, User-Agent `alexa-tibber-skill/1.0`). Timeout/Fehler → Antwort mit der letzten abgerechneten Stunde. SICHERHEIT: WebSocket-URL nur `wss` auf `tibber.com`/`*.tibber.com` (`ws` nur Loopback), Token nur in `connection_init`, nie geloggt.
+- **Dialog-Modell:** `GetCheapestWindowIntent` hat den Pflicht-Slot `duration` mit Auto-Delegation; bei unbrauchbarer Dauer antwortet `CheapestWindowIntentHandler` mit `Dialog.ElicitSlot`; `Dialog.Delegate` gibt er nur bei fehlender Dauer zurück.
 - **`UnhandledRequestHandler`** ist ein Catch-all und wird in `SkillFactory.create` als LETZTER Handler registriert: ASK SDK 2.86.0 liefert bei fehlendem passendem Handler `null` (keine Exception) – Exception-Handler sehen unbekannte Intents nie. `GenericExceptionHandler` behandelt ausschließlich geworfene Exceptions und antwortet gesprochen statt mit Lambda-Fehler.
-- **`SkillFactory.requestHandlers(...)`** enthält bewusst nur die 9 spezifischen Handler (ohne Catch-all), damit `InteractionModelCoverageTest` aussagekräftig bleibt: Er stellt sicher, dass jeder Intent aus dem Interaction Model einen Handler hat.
-- **Tibber `Consumption`-Typ:** gültige Felder `from`, `to`, `consumption`, `cost` (`unit` existiert nicht → `GRAPHQL_VALIDATION_FAILED`).
+- **`SkillFactory.requestHandlers(...)`** enthält bewusst nur die 16 spezifischen Handler (ohne Catch-all), damit `InteractionModelCoverageTest` aussagekräftig bleibt: Er stellt sicher, dass jeder Intent aus dem Interaction Model einen Handler hat. Er prüft außerdem, dass jede `{slot}`-Referenz deklariert ist und das Dialog-Modell nur existierende Intents, Slots und Prompts referenziert.
+- **Tibber `Consumption`-Typ:** gültige Felder `from`, `to`, `consumption`, `cost`, `currency` (`unit` existiert nicht → `GRAPHQL_VALIDATION_FAILED`).
 
 ## Logging
 
@@ -102,7 +115,9 @@ src/test/resources/logback-test.xml   # Plaintext für Tests
 
 - Tibber-HTTP wird nicht gemockt: `FakeTibberServer` (JDK `HttpServer`, Zufallsport, Loopback) + `TibberJson`-Fixtures.
 - Alexa-Requests als JSON: `AlexaRequestJson`.
-- Handler-Tests: `HandlerTestHelper` + Mockito-Mock von `TibberService`.
+- Preislogik und Handler: `PriceFixtures` (Viertelstunden ab `Instant`, `blocks` für Stundenblöcke); Handler-Tests mit fester Uhr `HandlerTestHelper.CLOCK` (Sa 10.10.2026, 10:00 Uhr Berlin), echtem `SpeechFormatter` und gemockten Services.
+- Live-Daten: `FakeTibberWebSocketServer` (Java-WebSocket, Loopback, Behavior skriptbar); `LiveServiceTest.currentUsage_neverLogsToken` prüft per `ListAppender`, dass der Token nie geloggt wird.
+- Mehrere Tibber-Abfragen in einem Ablauf: `FakeTibberServer.respondTo(marker, body)`.
 - Linking-Lambda: Events im API-Gateway-Format (Payload 2.0) über `ApiGatewayEvents`; `post_neverLogsOrEchoesToken` prüft per Logback-`ListAppender`, dass der Token nie geloggt wird.
 - Details → `SKILLS.md`
 
@@ -128,12 +143,12 @@ Offene Aufgaben, technische Schulden und Feature Requests stehen in `BACKLOG.md`
 
 ```bash
 ./gradlew build                                  # Tests + build/distributions/alexa-tibber-skill.zip
-./gradlew test --tests "*.TibberServiceTest"
+./gradlew test --tests "*.PriceServiceTest"
 # Integrationstest gegen die echte Tibber API (nur manuell durch den User; --rerun ist nötig, weil Gradle
 # die Umgebungsvariable nicht als Eingabe erkennt und sonst ein gecachtes Ergebnis mit übersprungenen Tests liefert)
 # Git Bash:
-TIBBER_DEMO_TOKEN=<token> ./gradlew test --tests "*.TibberServiceIntegrationTest" --rerun
+TIBBER_DEMO_TOKEN=<token> ./gradlew test --tests "*.TibberApiIntegrationTest" --rerun
 # PowerShell:
-$env:TIBBER_DEMO_TOKEN = '<token>'; .\gradlew.bat test --tests "*.TibberServiceIntegrationTest" --rerun
+$env:TIBBER_DEMO_TOKEN = '<token>'; .\gradlew.bat test --tests "*.TibberApiIntegrationTest" --rerun
 # Deployment (sam deploy) nur manuell durch den Maintainer – siehe README
 ```

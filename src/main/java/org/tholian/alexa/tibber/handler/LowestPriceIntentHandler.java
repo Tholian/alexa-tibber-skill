@@ -1,63 +1,48 @@
-
-
 package org.tholian.alexa.tibber.handler;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 
 import com.amazon.ask.dispatcher.request.handler.HandlerInput;
-import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.amazon.ask.model.Response;
-import com.amazon.ask.request.Predicates;
 
-import lombok.extern.slf4j.Slf4j;
-import org.tholian.alexa.tibber.model.Price;
-import org.tholian.alexa.tibber.service.TibberAuthenticationException;
-import org.tholian.alexa.tibber.service.TibberService;
+import org.tholian.alexa.tibber.service.PriceSchedule;
+import org.tholian.alexa.tibber.service.PriceService;
+import org.tholian.alexa.tibber.service.PriceWindow;
+import org.tholian.alexa.tibber.service.PriceWindows;
+import org.tholian.alexa.tibber.service.SpeechFormatter;
 
-@Slf4j
-public class LowestPriceIntentHandler implements RequestHandler {
+/**
+ * KI-generiert: „Wann ist Strom am günstigsten?“ – günstigstes 60-Minuten-Fenster (4 Viertelstunden)
+ * ab der laufenden Viertelstunde, über alle bekannten Preise (heute und – sobald veröffentlicht – morgen).
+ */
+public class LowestPriceIntentHandler extends TibberIntentHandler {
 
-	private final TibberService tibberService;
+	static final int ONE_HOUR = 4;
 
-	public LowestPriceIntentHandler( TibberService tibberService ) {
-		this.tibberService = tibberService;
+	private final PriceService priceService;
+	private final SpeechFormatter formatter;
+	private final Clock clock;
+
+	public LowestPriceIntentHandler( PriceService priceService, SpeechFormatter formatter, Clock clock ) {
+		super( "GetLowestPriceIntent",
+				"Es gibt gerade ein Problem beim Abrufen der Preisdaten. Bitte versuche es später noch einmal." );
+		this.priceService = priceService;
+		this.formatter = formatter;
+		this.clock = clock;
 	}
 
 	@Override
-	public boolean canHandle( HandlerInput input ) {
-		return input.matches( Predicates.intentName( "GetLowestPriceIntent" ) );
-	}
-
-	@Override
-	public Optional<Response> handle( HandlerInput input ) {
-		String token = AccountLinkingResponses.accessToken( input );
-		if ( token == null ) {
-			return AccountLinkingResponses.linkAccount( input );
+	protected Optional<Response> answer( HandlerInput input, String token ) {
+		PriceSchedule schedule = priceService.prices( token );
+		Instant now = clock.instant( );
+		Optional<PriceWindow> window = PriceWindows.cheapest( schedule.from( now ), ONE_HOUR );
+		if ( window.isEmpty( ) ) {
+			return speak( input, "Es sind keine Preisdaten für die nächsten Stunden verfügbar." );
 		}
-		try {
-			Optional<Price> lowestPrice = tibberService.getNextLowestPrice( token );
-			if ( lowestPrice.isEmpty( ) ) {
-				return input.getResponseBuilder( )
-						.withSpeech( "Es sind keine Preisdaten für die nächsten Stunden verfügbar." )
-						.build( );
-			}
-			Price price = lowestPrice.get( );
-			String speech = "Der günstigste Strompreis in den nächsten 24 Stunden ist um "
-			                + tibberService.formatTime( price.startsAt( ) )
-			                + " mit " + tibberService.formatPrice( price.total( ) ) + " pro Kilowattstunde.";
-			return input.getResponseBuilder( )
-					.withSpeech( speech )
-					.build( );
-		} catch ( TibberAuthenticationException e ) {
-			// KI-generiert: Token bei Tibber widerrufen/ungültig → Neuverknüpfung statt allgemeiner Fehlermeldung
-			// KI-generiert: Die Message enthält nur Status bzw. "UNAUTHENTICATED", nie den Token
-			log.warn( "Tibber lehnt den Access-Token ab – Neuverknüpfung angefordert: {}", e.getMessage( ) );
-			return AccountLinkingResponses.relinkAccount( input );
-		} catch ( Exception e ) {
-			log.error( "Fehler beim Abrufen des Tiefstpreises", e );
-			return input.getResponseBuilder( )
-					.withSpeech( "Es gibt gerade ein Problem beim Abrufen der Preisdaten. Bitte versuche es später noch einmal." )
-					.build( );
-		}
+		return speak( input, "Die günstigste Stunde beginnt " + formatter.startOf( window.get( ).first( ), now )
+		                     + ", im Schnitt " + formatter.unitPrice( window.get( ).average( ), schedule.currency( ) )
+		                     + " pro Kilowattstunde." );
 	}
 }

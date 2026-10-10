@@ -34,7 +34,9 @@
                         "aktueller Strompreis",
                         "was ist der Preis gerade",
                         "wie viel kostet Strom",
-                        "was kostet der Strom"
+                        "was kostet der Strom",
+                        "wie ist der Strompreis jetzt",
+                        "wie ist der Strompreis gerade"
                     ]
                 },
                 {
@@ -47,7 +49,11 @@
                         "was habe ich gerade verbraucht",
                         "mein aktueller Verbrauch",
                         "wie viel Strom habe ich verbraucht",
-                        "aktueller Stromverbrauch"
+                        "aktueller Stromverbrauch",
+                        "wie viel Watt verbrauche ich gerade",
+                        "wie hoch ist meine aktuelle Leistung",
+                        "was habe ich heute bisher verbraucht",
+                        "wie viel Strom verbrauche ich im Moment"
                     ]
                 },
                 {
@@ -76,9 +82,148 @@
                         "nächster Höchstpreis",
                         "teuerste Stunde"
                     ]
+                },
+                {
+                    "name": "GetPriceAtTimeIntent",
+                    "slots": [
+                        { "name": "time", "type": "AMAZON.TIME" },
+                        { "name": "date", "type": "AMAZON.DATE" }
+                    ],
+                    "samples": [
+                        "was kostet Strom um {time}",
+                        "wie teuer ist Strom um {time}",
+                        "was kostet der Strom um {time}",
+                        "wie ist der Strompreis um {time}",
+                        "was kostet Strom {date} um {time}",
+                        "wie teuer ist Strom {date} um {time}",
+                        "wie ist der Strompreis {date} um {time}"
+                    ]
+                },
+                {
+                    "name": "GetDayPriceSummaryIntent",
+                    "slots": [
+                        { "name": "date", "type": "AMAZON.DATE" }
+                    ],
+                    "samples": [
+                        "wie teuer wird Strom {date}",
+                        "wie sind die Strompreise {date}",
+                        "wie ist der Strompreis {date}",
+                        "Strompreise für {date}",
+                        "wie teuer wird Strom",
+                        "wie sind die Strompreise heute"
+                    ]
+                },
+                {
+                    "name": "GetCheapestWindowIntent",
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "samples": [
+                                "{duration}",
+                                "für {duration}",
+                                "etwa {duration}"
+                            ]
+                        }
+                    ],
+                    "samples": [
+                        "wann soll ich die Waschmaschine anmachen",
+                        "wann soll ich die Spülmaschine starten",
+                        "wann soll ich das Auto laden",
+                        "wann sind die günstigsten {duration}",
+                        "wann ist die günstigste Zeit für {duration}",
+                        "ich brauche {duration} Strom",
+                        "wann soll ich ein Gerät für {duration} laufen lassen"
+                    ]
+                },
+                {
+                    "name": "IsPriceCheapIntent",
+                    "slots": [],
+                    "samples": [
+                        "ist Strom gerade günstig",
+                        "ist Strom gerade teuer",
+                        "ist Strom jetzt billig",
+                        "lohnt es sich jetzt Strom zu verbrauchen",
+                        "ist jetzt ein guter Zeitpunkt",
+                        "soll ich jetzt waschen"
+                    ]
+                },
+                {
+                    "name": "GetPriceBreakdownIntent",
+                    "slots": [],
+                    "samples": [
+                        "wie setzt sich der Strompreis zusammen",
+                        "wie viel davon sind Steuern",
+                        "was ist der reine Energiepreis",
+                        "wie hoch sind die Abgaben",
+                        "woraus besteht der Strompreis"
+                    ]
+                },
+                {
+                    "name": "GetConsumptionForPeriodIntent",
+                    "slots": [
+                        { "name": "date", "type": "AMAZON.DATE" }
+                    ],
+                    "samples": [
+                        "wie viel Strom habe ich {date} verbraucht",
+                        "was war mein Verbrauch {date}",
+                        "wie hoch war mein Verbrauch {date}",
+                        "was hat mich Strom {date} gekostet",
+                        "wie viel Strom habe ich im {date} verbraucht",
+                        "was hat mich Strom im {date} gekostet",
+                        "wie hoch waren meine Stromkosten {date}",
+                        "mein Verbrauch {date}",
+                        "meine Stromkosten {date}"
+                    ]
+                },
+                {
+                    "name": "GetProductionForPeriodIntent",
+                    "slots": [
+                        { "name": "date", "type": "AMAZON.DATE" }
+                    ],
+                    "samples": [
+                        "wie viel Strom habe ich {date} eingespeist",
+                        "wie viel habe ich {date} eingespeist",
+                        "wie viel habe ich im {date} eingespeist",
+                        "wie viel Strom habe ich im {date} eingespeist",
+                        "was hat meine Solaranlage {date} eingebracht",
+                        "wie viel hat meine PV Anlage {date} erzeugt",
+                        "meine Einspeisung {date}"
+                    ]
                 }
             ],
             "types": []
-        }
+        },
+        "dialog": {
+            "intents": [
+                {
+                    "name": "GetCheapestWindowIntent",
+                    "delegationStrategy": "ALWAYS",
+                    "confirmationRequired": false,
+                    "prompts": {},
+                    "slots": [
+                        {
+                            "name": "duration",
+                            "type": "AMAZON.DURATION",
+                            "elicitationRequired": true,
+                            "confirmationRequired": false,
+                            "prompts": {
+                                "elicitation": "Elicit.Slot.GetCheapestWindowIntent.duration"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "delegationStrategy": "SKILL_RESPONSE"
+        },
+        "prompts": [
+            {
+                "id": "Elicit.Slot.GetCheapestWindowIntent.duration",
+                "variations": [
+                    { "type": "PlainText", "value": "Wie lange soll das Gerät laufen?" },
+                    { "type": "PlainText", "value": "Für wie viele Stunden brauchst du Strom?" }
+                ]
+            }
+        ]
     }
 }

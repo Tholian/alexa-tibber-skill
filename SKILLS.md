@@ -47,10 +47,10 @@ static String extractSpeech(Response response) {
 ```java
 @ExtendWith(MockitoExtension.class)
 class SomeIntentHandlerTest {
-    @Mock TibberService tibberService;
+    @Mock PriceService priceService;
     private SomeIntentHandler handler;
 
-    @BeforeEach void setUp() { handler = new SomeIntentHandler(tibberService); }
+    @BeforeEach void setUp() { handler = new SomeIntentHandler(priceService, new SpeechFormatter(CLOCK), CLOCK); }
 
     @Test void canHandle_matchesCorrectIntent() { ... }
     @Test void canHandle_doesNotMatchOtherIntent() { ... }
@@ -69,20 +69,46 @@ Die Tibber API wird nicht gemockt, sondern durch einen echten lokalen HTTP-Serve
 
 ```java
 private FakeTibberServer server;
-private TibberService service;
+private PriceService service;
 
 @BeforeEach void setUp() {
     server = new FakeTibberServer();
-    service = new TibberService(HttpClient.newHttpClient(), new ObjectMapper(), server.uri(),
-            Duration.ofMillis(500), Clock.fixed(NOW, ZoneOffset.UTC));
+    service = new PriceService(new TibberGraphQlClient(HttpClient.newHttpClient(), new ObjectMapper(), server.uri(),
+            Duration.ofMillis(500)));
 }
 
 @AfterEach void tearDown() { server.close(); }
 
 // Pro Test:
-server.respondWith(200, homeResponse(price(0.25, "NORMAL", "2026-06-15T10:00:00Z"), "[]", "null", "[]"));
-server.delayResponsesBy(Duration.ofSeconds(2));   // Timeout-Test
+server.respondWith(200, priceInfoResponse(price(0.25, "NORMAL", "2026-10-10T10:00:00+02:00"), "[]", "null"));
+server.respondTo("\"resolution\":\"MONTHLY\"", consumptionResponse(...)); // mehrere Abfragen in einem Ablauf
+server.delayResponsesBy(Duration.ofSeconds(2));                            // Timeout-Test
 assertThat(server.lastAuthorization()).isEqualTo("Bearer test-token");
+assertThat(server.lastRequestBody()).contains("\"resolution\":\"DAILY\"");   // GraphQL-Variablen
+```
+
+## Preise und Uhrzeit in Tests: `PriceFixtures` und feste Uhr
+
+`PriceFixtures.quarters(start, 0.30, 0.10, …)` erzeugt Viertelstunden ab einem `Instant`, `blocks(start, 4, 0.30, 0.10)` Stundenblöcke. Handler-Tests nutzen `HandlerTestHelper.CLOCK` (Samstag, 10.10.2026, 10:00 Uhr Berlin), einen echten `SpeechFormatter` und gemockte Services:
+
+```java
+handler = new LowestPriceIntentHandler(priceService, new SpeechFormatter(CLOCK), CLOCK);
+when(priceService.prices("test-token")).thenReturn(schedule(blocks(NOW, 4, 0.30, 0.10)));
+var response = handler.handle(intentInput("GetLowestPriceIntent", "test-token", Map.of())).orElseThrow();
+```
+
+Slots: `HandlerTestHelper.intentInput(intent, token, Map.of("date", "2026-10-11"))`; im End-to-End-Test `AlexaRequestJson.intent(skillId, intent, token, Map.of(...))`.
+
+## Live-Daten in Tests: `FakeTibberWebSocketServer`
+
+GraphQL-over-WebSocket-Server (`graphql-transport-ws`) auf Basis von Java-WebSocket (nur `testImplementation`), Loopback, Zufallsport:
+
+```java
+ws = new FakeTibberWebSocketServer();
+ws.behave(Behavior.NO_ACK);                      // MEASUREMENT, PING_THEN_MEASUREMENT, FRAGMENTED_MEASUREMENT, ERROR, CLOSE_ON_SUBSCRIBE, NO_ACK
+http.respondWith(200, livePrerequisiteResponse(ws.uri().toString(), true, "[]"));
+assertThat(ws.awaitClientClosed(Duration.ofSeconds(2))).isTrue();
+assertThat(ws.userAgent()).isEqualTo("alexa-tibber-skill/1.0");
 ```
 
 ---
@@ -107,17 +133,17 @@ assertThat(out.toString(UTF_8)).contains("Willkommen");
 
 ```java
 @EnabledIfEnvironmentVariable(named = "TIBBER_DEMO_TOKEN", matches = ".+")
-class TibberServiceIntegrationTest { ... }
+class TibberApiIntegrationTest { ... }
 ```
 
 Manueller Aufruf (Demo-Token aus dem Tibber Developer Portal, nie einchecken):
 ```bash
 # Git Bash
-TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
+TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberApiIntegrationTest"
 ```
 ```powershell
 # PowerShell
-$env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberServiceIntegrationTest"
+$env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberApiIntegrationTest"
 ```
 
 **Tibber GraphQL-Schema Hinweise:**
@@ -129,7 +155,7 @@ $env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberSer
 
 ## Timestamps in Tests
 
-`TibberService` bekommt eine `Clock` injiziert. Für `getNextLowestPrice`/`getNextHighestPrice` die Uhr fest stellen und feste Zeitpunkte davor/danach verwenden:
+`EnergyService`, `SpeechFormatter` und die zeitabhängigen Handler bekommen eine `Clock` injiziert (`PriceService` liefert nur Daten, „jetzt“ kommt aus der Clock der Handler/des `SpeechFormatter`). Für Tests mit „ab jetzt“-Logik die Uhr fest stellen und feste Zeitpunkte davor/danach verwenden:
 
 ```java
 private static final Instant NOW = Instant.parse("2026-06-15T10:00:00Z");
@@ -138,7 +164,7 @@ Clock.fixed(NOW, ZoneOffset.UTC)
 "2026-06-15T11:00:00Z"   // Zukunft
 ```
 
-Für `formatTime`-Tests: Datum muss sicher in CEST (Sommer) oder CET (Winter) liegen — kein Datum um die Zeitumstellung wählen:
+Für Tests von `SpeechFormatter.clockTime`/`time`: Datum muss sicher in CEST (Sommer) oder CET (Winter) liegen — kein Datum um die Zeitumstellung wählen:
 
 ```java
 "2026-06-15T10:00:00Z"  // sicher CEST → 12:00 Uhr Berlin

@@ -11,12 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.tholian.alexa.tibber.testsupport.AlexaRequestJson;
 import org.tholian.alexa.tibber.testsupport.FakeTibberServer;
 
+import java.time.Clock;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.homeResponse;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.price;
 
 /**
- * KI-generiert: Prüft die komplette Verdrahtung (Handler, Interceptoren, Exception-Handler, TibberService)
+ * KI-generiert: Prüft die komplette Verdrahtung (Handler, Interceptoren, Exception-Handler, Services)
  * mit echten Objekten. Nur die Tibber API ist durch den lokalen FakeTibberServer ersetzt.
  */
 class SkillFactoryTest {
@@ -75,8 +77,8 @@ class SkillFactoryTest {
     }
 
     @Test
-    void requestHandlers_containsAllNineHandlers() {
-        assertThat(SkillFactory.requestHandlers(null)).hasSize(9);
+    void requestHandlers_containsAllSixteenHandlers() {
+        assertThat(SkillFactory.requestHandlers(SkillServices.create(tibber.uri(), Clock.systemUTC()))).hasSize(16);
     }
 
     private Response invoke(String json) throws Exception {

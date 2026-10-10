@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.tholian.alexa.tibber.config.SkillFactory;
 import org.tholian.alexa.tibber.service.TibberApiException;
 import org.tholian.alexa.tibber.service.TibberAuthenticationException;
-import org.tholian.alexa.tibber.service.TibberService;
+import org.tholian.alexa.tibber.service.TibberAccountService;
 
 /**
  * KI-generiert: Lambda-Einstieg der Account-Linking-Brücke
@@ -43,7 +43,7 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 	private static final Pattern TOKEN_FORMAT = Pattern.compile( "[A-Za-z0-9._~+/=-]{20,512}" );
 
 	private final LinkingSettings settings;
-	private final TibberService tibberService;
+	private final TibberAccountService accountService;
 	private final ObjectMapper objectMapper = new ObjectMapper( );
 
 	/** KI-generiert: Von AWS Lambda verwendeter Konstruktor. */
@@ -57,13 +57,13 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 	}
 
 	private AccountLinkingHandler( LinkingSettings settings ) {
-		this( settings, SkillFactory.tibberService( settings.tibberApiUrl( ) ) );
+		this( settings, SkillFactory.tibberAccountService( settings.tibberApiUrl( ) ) );
 	}
 
 	/** KI-generiert: Testnaht, um unerwartete Fehler des Tibber-Clients deterministisch auszulösen. */
-	AccountLinkingHandler( LinkingSettings settings, TibberService tibberService ) {
+	AccountLinkingHandler( LinkingSettings settings, TibberAccountService accountService ) {
 		this.settings = settings;
-		this.tibberService = tibberService;
+		this.accountService = accountService;
 	}
 
 	@Override
@@ -112,7 +112,7 @@ public class AccountLinkingHandler implements RequestStreamHandler {
 					"Der Token hat ein ungültiges Format. Bitte kopiere ihn vollständig von developer.tibber.com." );
 		}
 		try {
-			tibberService.verifyToken( token );
+			accountService.verifyToken( token );
 		} catch ( TibberAuthenticationException e ) {
 			// KI-generiert: Die Message enthält nur Status bzw. "UNAUTHENTICATED", nie den Token
 			log.info( "Account Linking: Tibber lehnt den Token ab: {}", e.getMessage( ) );

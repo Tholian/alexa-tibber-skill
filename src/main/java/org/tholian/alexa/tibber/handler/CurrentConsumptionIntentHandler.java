@@ -1,70 +1,76 @@
-
-
 package org.tholian.alexa.tibber.handler;
 
-import java.util.Locale;
+import java.time.Duration;
 import java.util.Optional;
 
 import com.amazon.ask.dispatcher.request.handler.HandlerInput;
-import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.amazon.ask.model.Response;
-import com.amazon.ask.request.Predicates;
 
-import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+
 import org.tholian.alexa.tibber.model.ConsumptionNode;
-import org.tholian.alexa.tibber.service.TibberAuthenticationException;
-import org.tholian.alexa.tibber.service.TibberService;
+import org.tholian.alexa.tibber.model.LiveMeasurement;
+import org.tholian.alexa.tibber.service.CurrentUsage;
+import org.tholian.alexa.tibber.service.Deadline;
+import org.tholian.alexa.tibber.service.LiveService;
+import org.tholian.alexa.tibber.service.SpeechFormatter;
 
-@Slf4j
-public class CurrentConsumptionIntentHandler implements RequestHandler {
+/**
+ * KI-generiert: „Wie viel (Watt) verbrauche ich gerade?“ – mit Tibber Pulse die aktuelle Leistung und der
+ * Verbrauch seit Mitternacht, sonst ehrlich die zuletzt abgerechnete Stunde.
+ */
+public class CurrentConsumptionIntentHandler extends TibberIntentHandler {
 
-	private final TibberService tibberService;
+	private final LiveService liveService;
+	private final SpeechFormatter formatter;
+	private final Duration liveBudget;
 
-	public CurrentConsumptionIntentHandler( TibberService tibberService ) {
-		this.tibberService = tibberService;
+	/** @param liveBudget Zeitbudget für Vorabfrage und WebSocket zusammen (Alexa-Limit 8 s) */
+	public CurrentConsumptionIntentHandler( LiveService liveService, SpeechFormatter formatter, Duration liveBudget ) {
+		super( "GetCurrentConsumptionIntent",
+				"Es gibt gerade ein Problem beim Abrufen der Verbrauchsdaten. Bitte versuche es später noch einmal." );
+		this.liveService = liveService;
+		this.formatter = formatter;
+		this.liveBudget = liveBudget;
 	}
 
 	@Override
-	public boolean canHandle( HandlerInput input ) {
-		return input.matches( Predicates.intentName( "GetCurrentConsumptionIntent" ) );
+	protected Optional<Response> answer( HandlerInput input, String token ) {
+		return switch ( liveService.currentUsage( token, Deadline.after( liveBudget ) ) ) {
+			case CurrentUsage.Live live -> speak( input, liveSentence( live.measurement( ) ) );
+			case CurrentUsage.LastHour lastHour -> speak( input, lastHourSentence( lastHour.node( ) ) );
+		};
 	}
 
-	@Override
-	public Optional<Response> handle( HandlerInput input ) {
-		String token = AccountLinkingResponses.accessToken( input );
-		if ( token == null ) {
-			return AccountLinkingResponses.linkAccount( input );
+	private String liveSentence( LiveMeasurement measurement ) {
+		double power = measurement.power( ) == null ? 0 : measurement.power( );
+		StringBuilder speech = new StringBuilder( "Gerade verbrauchst du " ).append( formatter.power( power ) );
+		@Nullable Double production = measurement.powerProduction( );
+		if ( production != null && production > 0 ) {
+			speech.append( " und speist " ).append( formatter.power( production ) ).append( " ein" );
 		}
-		try {
-			Optional<ConsumptionNode> node = tibberService.getCurrentConsumption( token );
-			if ( node.isEmpty( ) ) {
-				return input.getResponseBuilder( )
-						.withSpeech( "Es sind noch keine Verbrauchsdaten verfügbar." )
-						.build( );
+		speech.append( '.' );
+		@Nullable Double consumedToday = measurement.accumulatedConsumption( );
+		if ( consumedToday != null ) {
+			speech.append( " Heute hast du bisher " ).append( formatter.energy( consumedToday ) );
+			@Nullable Double costToday = measurement.accumulatedCost( );
+			if ( costToday != null ) {
+				speech.append( " für " ).append( formatter.money( costToday, measurement.currency( ) ) );
 			}
-			ConsumptionNode consumption = node.get( );
-			String from = tibberService.formatTime( consumption.from( ) );
-			String speech;
-			if ( consumption.consumption( ) != null && consumption.cost( ) != null ) {
-				speech = String.format( Locale.GERMAN,
-						"In der Stunde ab %s hast du %.2f Kilowattstunden verbraucht und dafür %.2f Euro bezahlt.",
-						from, consumption.consumption( ), consumption.cost( ) );
-			} else {
-				speech = "In der Stunde ab " + from + " sind noch keine vollständigen Verbrauchsdaten verfügbar.";
-			}
-			return input.getResponseBuilder( )
-					.withSpeech( speech )
-					.build( );
-		} catch ( TibberAuthenticationException e ) {
-			// KI-generiert: Token bei Tibber widerrufen/ungültig → Neuverknüpfung statt allgemeiner Fehlermeldung
-			// KI-generiert: Die Message enthält nur Status bzw. "UNAUTHENTICATED", nie den Token
-			log.warn( "Tibber lehnt den Access-Token ab – Neuverknüpfung angefordert: {}", e.getMessage( ) );
-			return AccountLinkingResponses.relinkAccount( input );
-		} catch ( Exception e ) {
-			log.error( "Fehler beim Abrufen des Verbrauchs", e );
-			return input.getResponseBuilder( )
-					.withSpeech( "Es gibt gerade ein Problem beim Abrufen der Verbrauchsdaten. Bitte versuche es später noch einmal." )
-					.build( );
+			speech.append( " verbraucht." );
 		}
+		return speech.toString( );
+	}
+
+	private String lastHourSentence( @Nullable ConsumptionNode node ) {
+		if ( node == null ) {
+			return "Es sind noch keine Verbrauchsdaten verfügbar.";
+		}
+		String from = formatter.clockTime( node.from( ) );
+		if ( node.consumption( ) == null || node.cost( ) == null ) {
+			return "In der letzten abgerechneten Stunde ab " + from + " sind noch keine vollständigen Verbrauchsdaten verfügbar.";
+		}
+		return "In der letzten abgerechneten Stunde ab " + from + " hast du " + formatter.energy( node.consumption( ) )
+		       + " verbraucht und dafür " + formatter.money( node.cost( ), node.currency( ) ) + " bezahlt.";
 	}
 }

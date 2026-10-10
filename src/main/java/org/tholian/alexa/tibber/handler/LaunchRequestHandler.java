@@ -19,9 +19,8 @@ public class LaunchRequestHandler implements RequestHandler {
 	@Override
 	public Optional<Response> handle( HandlerInput input ) {
 		return input.getResponseBuilder( )
-				.withSpeech( "Willkommen beim Tibber Strompreis Skill! Du kannst fragen: " +
-				             "Was kostet Strom gerade? Wann ist Strom am günstigsten? " +
-				             "Wann ist Strom am teuersten? Oder: Wie viel Strom verbrauche ich gerade?" )
+				.withSpeech( "Willkommen beim Tibber Strompreis Skill! Frag zum Beispiel: Was kostet Strom gerade? "
+				             + "Wann soll ich die Waschmaschine anmachen? Oder: Wie viel Strom habe ich gestern verbraucht?" )
 				.withReprompt( "Wie kann ich dir helfen?" )
 				.withShouldEndSession( false )
 				.build( );

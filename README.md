@@ -10,14 +10,22 @@ Frag Alexa einfach nach dem aktuellen Strompreis, deinem Verbrauch oder der gün
 
 ### Was der Skill kann
 
-Mit einem dynamischen Stromtarif von Tibber ändert sich der Preis stündlich. Der Skill sagt dir per Sprache, was Strom gerade kostet und wann es sich lohnt, die Waschmaschine, den Geschirrspüler oder das Laden des E-Autos zu starten.
+Mit einem dynamischen Stromtarif von Tibber ändert sich der Preis jede Viertelstunde. Der Skill sagt dir per Sprache, was Strom gerade kostet und wann es sich lohnt, die Waschmaschine, den Geschirrspüler oder das Laden des E-Autos zu starten.
+
+„…“ steht für „Alexa, frag tibber strompreis,“.
 
 | Du sagst (Beispiel) | Alexa antwortet mit |
 |---|---|
-| „Alexa, frag tibber strompreis, was kostet Strom gerade?“ | dem aktuellen Preis in Cent pro Kilowattstunde und dem Preisniveau (z. B. „günstig“ oder „teuer“) |
-| „Alexa, frag tibber strompreis, wann ist Strom am günstigsten?“ | der Uhrzeit mit dem niedrigsten Preis in den nächsten 24 Stunden |
-| „Alexa, frag tibber strompreis, wann ist Strom am teuersten?“ | der Uhrzeit mit dem höchsten Preis in den nächsten 24 Stunden |
-| „Alexa, frag tibber strompreis, wie viel Strom verbrauche ich gerade?“ | deinem Verbrauch in Kilowattstunden und den Kosten der zuletzt abgerechneten Stunde |
+| „… was kostet Strom gerade?“ | dem Preis der laufenden Viertelstunde in Cent pro Kilowattstunde und dem Preisniveau (z. B. „günstig“ oder „teuer“) |
+| „… was kostet Strom morgen um 18 Uhr?“ | dem Preis zu dieser Uhrzeit (heute oder morgen) |
+| „… wie teuer wird Strom morgen?“ | Spanne, Durchschnitt sowie günstigster und teuerster Zeitpunkt des Tages |
+| „… wann ist Strom am günstigsten?“ / „… am teuersten?“ | dem Beginn der günstigsten bzw. teuersten Stunde mit Durchschnittspreis |
+| „… wann sind die günstigsten drei Stunden?“ / „… wann soll ich die Waschmaschine anmachen?“ | dem günstigsten zusammenhängenden Zeitraum – fehlt die Dauer, fragt Alexa nach |
+| „… ist Strom gerade günstig?“ | Ja oder Nein nach Preisniveau, sonst mit Hinweis auf die günstigste Stunde |
+| „… wie setzt sich der Strompreis zusammen?“ | Energiepreis sowie Steuern und Abgaben |
+| „… wie viel Strom habe ich gestern verbraucht?“ / „… was hat mich Strom im September gekostet?“ | Verbrauch, Kosten und Durchschnittspreis für einen Tag, eine Woche, einen Monat oder ein Jahr |
+| „… wie viel habe ich letzte Woche eingespeist?“ | Einspeisung und Erlös (nur mit Einspeisung, z. B. PV-Anlage) |
+| „… wie viel Watt verbrauche ich gerade?“ | mit Tibber Pulse: aktuelle Leistung und Verbrauch seit Mitternacht; sonst die zuletzt abgerechnete Stunde |
 
 Du kannst den Skill auch mit „Alexa, öffne tibber strompreis“ starten und dann deine Frage stellen. „Hilfe“ nennt dir alle Möglichkeiten, „Stopp“ beendet den Skill. Alle Uhrzeiten gelten in deutscher Zeit.
 
@@ -25,7 +33,7 @@ Du kannst den Skill auch mit „Alexa, öffne tibber strompreis“ starten und d
 
 - ein Alexa-fähiges Gerät oder die Alexa-App auf dem Smartphone,
 - ein Tibber-Konto mit aktivem Stromvertrag,
-- für Verbrauchsangaben zusätzlich einen [Tibber Pulse](https://tibber.com/de/pulse) oder ein von Tibber ausgelesenes Smart Meter,
+- für Verbrauchs- und Einspeiseangaben ein von Tibber ausgelesenes Smart Meter oder einen [Tibber Pulse](https://tibber.com/de/pulse); Live-Werte in Watt gibt es nur mit Pulse,
 - einen persönlichen Tibber-Zugangstoken (Access Token) – wie du ihn erzeugst, steht unten.
 
 ### Einrichtung in vier Schritten
@@ -37,7 +45,7 @@ Du kannst den Skill auch mit „Alexa, öffne tibber strompreis“ starten und d
 
 ### Deine Daten
 
-- Der Tibber-Token lässt sich nicht auf Lesezugriff beschränken – er gewährt vollen Zugriff auf die Tibber-API deines Kontos. Der Skill nutzt ihn ausschließlich lesend für Preise und Verbrauch.
+- Der Tibber-Token lässt sich nicht auf Lesezugriff beschränken – er gewährt vollen Zugriff auf die Tibber-API deines Kontos. Der Skill nutzt ihn ausschließlich lesend für Preise, Verbrauch, Einspeisung und Live-Messwerte.
 - Nach der Verknüpfung speichert Amazon den Token und schickt ihn bei jeder Frage an den Skill mit. Der Skill selbst speichert ihn nicht und schreibt ihn nicht in Logs.
 - Du kannst jederzeit aussteigen: Verknüpfung in der Alexa-App beim Skill aufheben und den Token auf developer.tibber.com löschen.
 - Details stehen in der Datenschutzerklärung, die in der Skill-Beschreibung im Alexa Skill Store verlinkt ist.
@@ -50,6 +58,8 @@ Du kannst den Skill auch mit „Alexa, öffne tibber strompreis“ starten und d
 | Alexa sagt „Bitte verknüpfe zunächst deinen Tibber Account“. | Die Verknüpfung fehlt noch – siehe Schritt 3 der Einrichtung. |
 | Es kommen keine Verbrauchsdaten. | Verbrauchsdaten gibt es nur mit Tibber Pulse oder einem von Tibber ausgelesenen Smart Meter. Die letzte Stunde wird außerdem erst mit etwas Verzögerung abgerechnet. |
 | Die günstigste Stunde liegt nie am nächsten Tag. | Tibber veröffentlicht die Preise für morgen in der Regel am frühen Nachmittag. Vorher kennt der Skill nur die Preise für heute. |
+| Alexa nennt statt der aktuellen Leistung die letzte Stunde. | Live-Werte gibt es nur mit Tibber Pulse. Kommt innerhalb weniger Sekunden keine Messung, antwortet der Skill mit der zuletzt abgerechneten Stunde. |
+| Alexa sagt „Diesen Zeitraum kann ich nicht auswerten“. | Unterstützt werden einzelne Tage, Kalenderwochen, Monate und Jahre (Tage und Wochen bis gut ein Jahr, Monate bis zehn Jahre, Jahre bis 20 Jahre zurück). Wochenenden oder Jahreszeiten kennt der Skill nicht. |
 | Alexa meldet ein Problem beim Abrufen. | Tibber war kurz nicht erreichbar. Versuch es nach einem Moment erneut. |
 
 ---
@@ -112,12 +122,12 @@ Optional, mit dem öffentlichen Demo-Token aus dem [Tibber Developer Portal](htt
 
 Git Bash:
 ```bash
-TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberServiceIntegrationTest"
+TIBBER_DEMO_TOKEN=<demo-token> ./gradlew test --tests "*.TibberApiIntegrationTest"
 ```
 
 PowerShell:
 ```powershell
-$env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberServiceIntegrationTest"
+$env:TIBBER_DEMO_TOKEN = '<demo-token>'; .\gradlew.bat test --tests "*.TibberApiIntegrationTest"
 ```
 
 Ohne gesetzte Variable wird der Test übersprungen. Tokens nie einchecken.
@@ -334,7 +344,8 @@ Alexa ──(Lambda-Invoke, nur diese Skill-ID)──▶ TibberSkillStreamHandle
                                                  │  SkillFactory verdrahtet alles einmalig beim Init
                                                  ├── LoggingInterceptor       (MDC befüllen)
                                                  ├── [Intent]Handler          (Fachlogik)
-                                                 │       └── TibberService    (GraphQL via java.net.http)
+                                                 │       ├── Price-/Energy-/LiveService → TibberGraphQlClient (GraphQL via java.net.http)
+                                                 │       └── LiveMeasurementClient      (GraphQL-Subscription via java.net.http.WebSocket)
                                                  ├── UnhandledRequestHandler  (Catch-all für unbekannte Intents)
                                                  ├── GenericExceptionHandler  (Fallback-Antwort bei Exceptions)
                                                  └── MDCCleanupInterceptor    (MDC leeren)

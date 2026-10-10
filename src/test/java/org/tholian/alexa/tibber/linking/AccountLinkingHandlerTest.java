@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.tholian.alexa.tibber.config.SkillSettings;
-import org.tholian.alexa.tibber.service.TibberService;
+import org.tholian.alexa.tibber.service.TibberAccountService;
 import org.tholian.alexa.tibber.testsupport.FakeTibberServer;
 
 import java.io.ByteArrayInputStream;
@@ -264,7 +264,7 @@ class AccountLinkingHandlerTest {
 
     @Test
     void post_whenUnexpectedRuntimeExceptionOccurs_returnsGenericErrorPageAndLogsOnlyClassName() throws IOException {
-        TibberService failing = mock(TibberService.class);
+        TibberAccountService failing = mock(TibberAccountService.class);
         doThrow(new IllegalStateException("geheim " + TOKEN)).when(failing).verifyToken(anyString());
         var failingHandler = new AccountLinkingHandler(
                 LinkingSettings.fromEnvironment(Map.of(

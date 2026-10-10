@@ -1,56 +1,39 @@
-
-
 package org.tholian.alexa.tibber.handler;
 
 import java.util.Optional;
 
 import com.amazon.ask.dispatcher.request.handler.HandlerInput;
-import com.amazon.ask.dispatcher.request.handler.RequestHandler;
 import com.amazon.ask.model.Response;
-import com.amazon.ask.request.Predicates;
 
-import lombok.extern.slf4j.Slf4j;
 import org.tholian.alexa.tibber.model.Price;
-import org.tholian.alexa.tibber.service.TibberAuthenticationException;
-import org.tholian.alexa.tibber.service.TibberService;
+import org.tholian.alexa.tibber.service.PriceSchedule;
+import org.tholian.alexa.tibber.service.PriceService;
+import org.tholian.alexa.tibber.service.SpeechFormatter;
+import org.tholian.alexa.tibber.service.TibberApiException;
 
-@Slf4j
-public class CurrentPriceIntentHandler implements RequestHandler {
+/**
+ * KI-generiert: „Was kostet Strom gerade?“ – Preis der laufenden Viertelstunde und Preisniveau.
+ */
+public class CurrentPriceIntentHandler extends TibberIntentHandler {
 
-	private final TibberService tibberService;
+	private final PriceService priceService;
+	private final SpeechFormatter formatter;
 
-	public CurrentPriceIntentHandler( TibberService tibberService ) {
-		this.tibberService = tibberService;
+	public CurrentPriceIntentHandler( PriceService priceService, SpeechFormatter formatter ) {
+		super( "GetCurrentPriceIntent",
+				"Es gibt gerade ein Problem beim Abrufen des Strompreises. Bitte versuche es später noch einmal." );
+		this.priceService = priceService;
+		this.formatter = formatter;
 	}
 
 	@Override
-	public boolean canHandle( HandlerInput input ) {
-		return input.matches( Predicates.intentName( "GetCurrentPriceIntent" ) );
-	}
-
-	@Override
-	public Optional<Response> handle( HandlerInput input ) {
-		String token = AccountLinkingResponses.accessToken( input );
-		if ( token == null ) {
-			return AccountLinkingResponses.linkAccount( input );
+	protected Optional<Response> answer( HandlerInput input, String token ) {
+		PriceSchedule schedule = priceService.prices( token );
+		Price current = schedule.current( );
+		if ( current == null ) {
+			throw new TibberApiException( "Tibber liefert keinen aktuellen Preis" );
 		}
-		try {
-			Price price = tibberService.getCurrentPrice( token );
-			String speech = "Der aktuelle Strompreis beträgt " + tibberService.formatPrice( price.total( ) )
-			                + " pro Kilowattstunde. Das Preisniveau ist " + tibberService.formatLevel( price.level( ) ) + ".";
-			return input.getResponseBuilder( )
-					.withSpeech( speech )
-					.build( );
-		} catch ( TibberAuthenticationException e ) {
-			// KI-generiert: Token bei Tibber widerrufen/ungültig → Neuverknüpfung statt allgemeiner Fehlermeldung
-			// KI-generiert: Die Message enthält nur Status bzw. "UNAUTHENTICATED", nie den Token
-			log.warn( "Tibber lehnt den Access-Token ab – Neuverknüpfung angefordert: {}", e.getMessage( ) );
-			return AccountLinkingResponses.relinkAccount( input );
-		} catch ( Exception e ) {
-			log.error( "Fehler beim Abrufen des Strompreises", e );
-			return input.getResponseBuilder( )
-					.withSpeech( "Es gibt gerade ein Problem beim Abrufen des Strompreises. Bitte versuche es später noch einmal." )
-					.build( );
-		}
+		return speak( input, "Der aktuelle Strompreis beträgt " + formatter.unitPrice( current.total( ), schedule.currency( ) )
+		                     + " pro Kilowattstunde. Das Preisniveau ist " + formatter.level( current.level( ) ) + "." );
 	}
 }

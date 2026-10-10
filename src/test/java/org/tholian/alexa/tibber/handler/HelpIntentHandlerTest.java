@@ -36,6 +36,7 @@ class HelpIntentHandlerTest {
 
         assertThat(response).isPresent();
         // KI-generiert: Produktionscode liefert "Mit dem Tibber Strompreis Skill kannst du..."
-        assertThat(HandlerTestHelper.extractSpeech(response.get())).contains("Tibber");
+        assertThat(HandlerTestHelper.extractSpeech(response.get()))
+                .contains("Tibber").contains("18 Uhr").contains("Watt").contains("eingespeist");
     }
 }

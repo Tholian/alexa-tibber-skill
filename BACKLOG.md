@@ -12,7 +12,7 @@ Zentrale Liste für offene Aufgaben, technische Schulden und Feature Requests di
 ## Vor der Veröffentlichung (Pflicht)
 
 - [ ] **Datenschutzerklärung erstellen, prüfen und veröffentlichen** – Pflicht für einen öffentlichen Skill mit Account Linking. Die URL wird als SAM-Parameter `PrivacyPolicyUrl` (Link auf der Verknüpfungsseite) und in der Alexa Developer Console unter *Distribution* → *Privacy Policy URL* eingetragen. Mindestinhalte:
-  - **Wichtiger Hinweis zum Tibber-Token:** Der persönliche Tibber-Token lässt sich nicht auf Lesezugriff beschränken. Er gewährt vollen Zugriff auf die Tibber-API des Kontos. Der Skill nutzt ihn ausschließlich lesend (Preise, Verbrauch, Home-IDs zur Prüfung). Das muss für Nutzer klar erkennbar offengelegt werden.
+  - **Wichtiger Hinweis zum Tibber-Token:** Der persönliche Tibber-Token lässt sich nicht auf Lesezugriff beschränken. Er gewährt vollen Zugriff auf die Tibber-API des Kontos. Der Skill nutzt ihn ausschließlich lesend (Preise, Verbrauch, Einspeisung, Live-Messwerte über eine WebSocket-Verbindung zu Tibber, Home-IDs). Das muss für Nutzer klar erkennbar offengelegt werden.
   - Welche Daten verarbeitet werden: persönlicher Tibber-Token, Preis- und Verbrauchsdaten von Tibber, pseudonymisierte Alexa User-ID in Logs (nach DSGVO ein personenbezogenes Datum).
   - Betreiberzugriff und Vertrauen: Die Lambda-Funktion des Betreibers erhält den Token mit jeder Anfrage; Nutzer müssen dem Betreiber vertrauen.
   - Empfänger und Auftragsverarbeiter: Tibber erhält den Token bei der Prüfung und bei jeder Abfrage (Empfänger); AWS verarbeitet die Daten im Auftrag (Auftragsverarbeiter).
@@ -23,7 +23,7 @@ Zentrale Liste für offene Aufgaben, technische Schulden und Feature Requests di
 
   Den Text juristisch prüfen lassen; das Repository enthält bewusst keinen Rechtstext. _Account-Linking-Plan, 2026-10-09_
 - [ ] **Implicit Grant in der Developer Console bestätigen** – prüfen, dass *Implicit Grant* auswählbar ist und ob das Scope-Feld einen Wert verlangt (laut README dann `prices`). _2026-10-09_
-- [ ] **Tibber-Ablehnungsverhalten verifizieren** – Integrationstest `verifyToken_withInvalidToken_throwsAuthenticationException` mit gesetztem `TIBBER_DEMO_TOKEN` ausführen. Schlägt er fehl, liefert Tibber einen anderen Fehlercode, und `TibberService.isUnauthenticated` muss angepasst werden. _2026-10-09_
+- [ ] **Tibber-Ablehnungsverhalten verifizieren** – Integrationstest `verifyToken_withInvalidToken_throwsAuthenticationException` mit gesetztem `TIBBER_DEMO_TOKEN` ausführen. Schlägt er fehl, liefert Tibber einen anderen Fehlercode, und `TibberGraphQlClient.isUnauthenticated` muss angepasst werden. _2026-10-09_
 - [ ] **Markenrecht für Skill-Name klären** – Skill-Name („Tibber Strompreis“) und Invocation Name (`tibber strompreis`) enthalten die Marke „Tibber“. Amazon lehnt bei der Zertifizierung Skills ab, die fremde Markennamen ohne Nachweis einer Berechtigung verwenden. Vor dem Einreichen eine schriftliche Erlaubnis von Tibber einholen oder einen neutralen Namen wählen (dann Invocation Name in `skill-package/interactionModels/custom/de-DE.json`, Texte in den Handlern, README und Tests anpassen). _2026-10-09_
 - [ ] **Lambda-Runtime prüfen** – sicherstellen, dass `java25` mit SnapStart in `eu-west-1` verfügbar ist; sonst auf `java21` und Toolchain 21 umstellen (siehe README-Fehlertabelle). _2026-10-09_
 - [ ] **Ende-zu-Ende-Test auf dem Smartphone** – verknüpfen, Preis abfragen, Token bei Tibber widerrufen, erneut fragen (Aufforderung zur Neuverknüpfung), neu verknüpfen. Fehleranzeige bei falsch kopiertem Token prüfen. Zusätzlich prüfen:
@@ -32,6 +32,8 @@ Zentrale Liste für offene Aufgaben, technische Schulden und Feature Requests di
   - Ein `+` und Sonderzeichen in `state` überstehen die Query-Dekodierung unverändert.
 
   _2026-10-09_
+- [ ] **Live-Daten gegen Tibber verifizieren** – TibberApiIntegrationTest.currentUsage_withDemoToken_deliversLiveMeasurement mit TIBBER_DEMO_TOKEN ausführen. Bei Rückfall auf die letzte Stunde Subprotokoll (graphql-transport-ws vs. graphql-ws) und User-Agent in LiveMeasurementClient prüfen. _Plan Erweiterte Abfragen, 2026-10-10_
+- [ ] **Utterances im Alexa-Simulator prüfen** – Utterance Profiler für überlappende Phrasen, z. B. „wie teuer ist Strom“ vs. „wie teuer ist Strom {date}“ oder „was habe ich heute bisher verbraucht“ vs. GetConsumptionForPeriodIntent; Dialog für „wann soll ich die Waschmaschine anmachen“ testen. AMAZON.DATE ohne Jahr (z. B. „im September“, „am Montag“) kann auf das nächste Vorkommen in der Zukunft auflösen – dann antworten Verbrauch/Einspeisung „liegt in der Zukunft“; ggf. in ConsumptionForPeriod/ProductionForPeriod auf das letzte Vorkommen zurückrechnen. Außerdem PRESENT_REF und „im {date}“-Samples prüfen. _2026-10-10_
 
 ## Technische Aufgaben
 
@@ -47,6 +49,8 @@ Zentrale Liste für offene Aufgaben, technische Schulden und Feature Requests di
 - [ ] **Git-Historie** – ältere Commits enthalten die öffentlichen Tibber-Demo-Tokens. Vor einer Veröffentlichung des Repositories bewusst entscheiden, ob die Historie bereinigt werden soll. _2026-10-09_
 - [ ] **Drosselung pro Client** – Die Verknüpfungsseite ist nur global (je Route 5 Anfragen/s) gedrosselt; ein einzelner Client kann sie vorübergehend für alle blockieren. Bei Bedarf API Gateway REST API mit AWS WAF oder eine vorgeschaltete CloudFront-Distribution mit WAF prüfen. _2026-10-09_
 - [ ] **Origin-Prüfung hinter Proxy** – Die Herkunftsprüfung vergleicht mit „https://“ + Host. Wird später ein Proxy vorgeschaltet, der den Host-Header umschreibt (z. B. CloudFront), muss die erwartete Origin konfigurierbar werden. _2026-10-09_
+- [ ] **„Steuern und Abgaben“ fachlich klären** – Tibber dokumentiert nicht, ob das Feld tax Netzentgelte enthält; Ansage in PriceBreakdownIntentHandler ggf. anpassen. _2026-10-10_
+- [ ] **Progressive Response für Live-Daten** – bei langsamem Pulse vorab „Einen Moment …“ senden (Alexa Progressive Response API). _2026-10-10_
 
 ### Nacharbeiten Account Linking
 
@@ -63,12 +67,12 @@ Zentrale Liste für offene Aufgaben, technische Schulden und Feature Requests di
 
 ## Feature Requests
 
-- [ ] **Viertelstunden-Preise** – Tibber liefert zunehmend Preise in 15-Minuten-Auflösung; Abfrage und Sprachausgabe darauf erweitern. _2026-10-09_
 - [ ] **Mehrere Zuhause** – aktuell wird immer das erste Zuhause des Kontos verwendet; Auswahl per Sprachbefehl oder Einstellung. _2026-10-09_
-- [ ] **Günstigstes Zeitfenster für Geräte** – z. B. „Wann ist der günstigste 2-Stunden-Block für die Waschmaschine?“. _2026-10-09_
-- [ ] **Preise für morgen gezielt abfragen** – z. B. „Was kostet Strom morgen um 18 Uhr?“. _2026-10-09_
 
 ## Erledigt
 
 - [x] **Umstellung auf AWS Lambda** – Skill läuft als Lambda-Funktion mit SnapStart, Deployment per SAM. _2026-10-09, Commits 0225232..1100346 (Git-Bereich, ohne 0225232 selbst)_
 - [x] **Account Linking mit persönlichem Tibber-Token** – gehärtete Verknüpfungsseite (Implicit Grant), Neuverknüpfung bei widerrufenem Token. _2026-10-09, Commits 1100346..3268431 sowie die Backlog- und Fix-Commits (bis einschließlich der abschließenden Fix-Commits)_
+- [x] **Viertelstunden-Preise** – Tibber liefert zunehmend Preise in 15-Minuten-Auflösung; Abfrage und Sprachausgabe darauf erweitern. _2026-10-10, Plan docs/superpowers/plans/2026-10-10-extended-queries.md_
+- [x] **Günstigstes Zeitfenster für Geräte** – z. B. „Wann ist der günstigste 2-Stunden-Block für die Waschmaschine?“. _2026-10-10, Plan docs/superpowers/plans/2026-10-10-extended-queries.md_
+- [x] **Preise für morgen gezielt abfragen** – z. B. „Was kostet Strom morgen um 18 Uhr?“. _2026-10-10, Plan docs/superpowers/plans/2026-10-10-extended-queries.md_

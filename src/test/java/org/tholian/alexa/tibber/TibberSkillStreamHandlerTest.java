@@ -11,11 +11,16 @@ import org.tholian.alexa.tibber.testsupport.FakeTibberServer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.array;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.consumptionNode;
+import static org.tholian.alexa.tibber.testsupport.TibberJson.consumptionResponse;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.homeResponse;
 import static org.tholian.alexa.tibber.testsupport.TibberJson.price;
 
@@ -58,6 +63,21 @@ class TibberSkillStreamHandlerTest {
 
         assertThat(json).contains("25,0 Cent").contains("normal");
         assertThat(tibber.lastAuthorization()).isEqualTo("Bearer test-token");
+    }
+
+    @Test
+    void handleRequest_consumptionForYesterday_answersWithSum() throws IOException {
+        // KI-generiert: Der Lambda-Einstieg nutzt die echte Uhr – „gestern“ wird deshalb relativ zu heute berechnet
+        ZoneId berlin = ZoneId.of("Europe/Berlin");
+        LocalDate yesterday = LocalDate.now(berlin).minusDays(1);
+        String from = yesterday.atStartOfDay(berlin).toOffsetDateTime().toString();
+        tibber.respondWith(200, consumptionResponse(array(consumptionNode(from, 8.4, 2.31))));
+
+        String json = invoke(AlexaRequestJson.intent(SKILL_ID, "GetConsumptionForPeriodIntent", "test-token",
+                Map.of("date", yesterday.toString())));
+
+        assertThat(json).contains("Gestern hast du 8,4 Kilowattstunden verbraucht und dafür 2,31 Euro bezahlt");
+        assertThat(tibber.lastRequestBody()).contains("\"resolution\":\"DAILY\"");
     }
 
     @Test
