@@ -45,7 +45,7 @@ dependencies {
     runtimeOnly("net.logstash.logback:logstash-logback-encoder:8.1")
 
     // Nur zur Compile-Zeit (nicht im Lambda-Paket): @Language, @NullMarked/@Nullable, @Slf4j
-    compileOnly("org.jetbrains:annotations:24.1.0")
+    compileOnly("org.jetbrains:annotations:26.1.0")
     compileOnly("org.jspecify:jspecify:1.0.1")
     compileOnly("org.projectlombok:lombok:1.18.48")
     annotationProcessor("org.projectlombok:lombok:1.18.48")
