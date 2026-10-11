@@ -42,7 +42,7 @@ dependencies {
 
     // JSON-Logging nach CloudWatch
     runtimeOnly("ch.qos.logback:logback-classic:1.6.5")
-    runtimeOnly("net.logstash.logback:logstash-logback-encoder:8.1")
+    runtimeOnly("net.logstash.logback:logstash-logback-encoder:9.0")
 
     // Nur zur Compile-Zeit (nicht im Lambda-Paket): @Language, @NullMarked/@Nullable, @Slf4j
     compileOnly("org.jetbrains:annotations:24.1.0")
