@@ -34,9 +34,9 @@ dependencies {
     }
     // KI-generiert: Jackson wird direkt importiert (TibberGraphQlClient, Modell) und daher explizit deklariert;
     // die Version entspricht der bereits aufgelösten (ask-sdk-model-runtime bringt ältere mit)
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
     // Lambda-Laufzeit-Interfaces (RequestStreamHandler, Context)
-    implementation("com.amazonaws:aws-lambda-java-core:1.4.0")
+    implementation("com.amazonaws:aws-lambda-java-core:1.4.1")
     // SLF4J-API explizit auf 2.x – ask-sdk-core bringt transitiv 1.7.x mit, Logback 1.5 benötigt 2.x
     implementation("org.slf4j:slf4j-api:2.0.20")
 
