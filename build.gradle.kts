@@ -34,14 +34,14 @@ dependencies {
     }
     // KI-generiert: Jackson wird direkt importiert (TibberGraphQlClient, Modell) und daher explizit deklariert;
     // die Version entspricht der bereits aufgelösten (ask-sdk-model-runtime bringt ältere mit)
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
     // Lambda-Laufzeit-Interfaces (RequestStreamHandler, Context)
-    implementation("com.amazonaws:aws-lambda-java-core:1.4.0")
+    implementation("com.amazonaws:aws-lambda-java-core:1.4.1")
     // SLF4J-API explizit auf 2.x – ask-sdk-core bringt transitiv 1.7.x mit, Logback 1.5 benötigt 2.x
     implementation("org.slf4j:slf4j-api:2.0.20")
 
     // JSON-Logging nach CloudWatch
-    runtimeOnly("ch.qos.logback:logback-classic:1.6.5")
+    runtimeOnly("ch.qos.logback:logback-classic:1.6.6")
     runtimeOnly("net.logstash.logback:logstash-logback-encoder:8.1")
 
     // Nur zur Compile-Zeit (nicht im Lambda-Paket): @Language, @NullMarked/@Nullable, @Slf4j
@@ -56,7 +56,7 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.mockito:mockito-junit-jupiter:5.24.0")
     // KI-generiert: Logback-API im Test, um zu prüfen, dass der Tibber-Token nie geloggt wird
-    testImplementation("ch.qos.logback:logback-classic:1.6.5")
+    testImplementation("ch.qos.logback:logback-classic:1.6.6")
     // KI-generiert: WebSocket-Server nur für Tests (FakeTibberWebSocketServer) – nicht im Lambda-Paket;
     // der Skill selbst nutzt java.net.http.WebSocket aus dem JDK
     testImplementation("org.java-websocket:Java-WebSocket:1.6.0")
